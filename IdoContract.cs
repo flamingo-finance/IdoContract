@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Numerics;
 using Neo;
+using Neo.SmartContract;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
@@ -14,23 +15,61 @@ namespace HelloContract
     [ManifestExtra("Description", "This is a HelloContract")]
     public class IdoContract : SmartContract
     {
+        #region prefix
         private static readonly byte[] userStakePrefix = new byte[] { 0x01, 0x01 };
+        private static readonly byte[] stakeAssetHashKey = new byte[] { 0x01, 0x02 };
+        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
+        private static readonly byte[] defaultStakeAssetHash = default;
 
         private static readonly byte[] timeSpanKey = new byte[] { 0x02, 0x01 };
         private static readonly ulong defaultTimeSpan = 100000000;
+        private static readonly byte[] unstakeTimeSpanKey = new byte[] { 0x02, 0x02 };
+        private static readonly uint defaultUnstakeTimeSpan = 6172;
         private static readonly byte[] levelAmountKey = { 0x03, 0x01 };
 
+        private const int withdrawFeeDenominator = 10000;
+        private const int defaultWithdrawFee = 8000;
+        private static readonly byte[] withdrawFeeKey = { 0x04, 0x01 };
+
+        private static readonly byte[] superAdminKey = { 0x05, 0x01 };
+        #endregion
+
+        #region event
+        public static event Action<byte[], UInt160> OnDeploy;
+        #endregion
+
+        #region admin setting
+        private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
+        public static void _deploy(object data, bool update)
+        {
+            if (((UInt160)data).Length != 20) throw new Exception("baa");//bad admin address
+            Storage.Put(Storage.CurrentContext, superAdminKey, (UInt160)data);
+            OnDeploy(superAdminKey, (UInt160)data);
+        }
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            if (CheckWhiteListAsset(Runtime.CallingScriptHash)) 
+            if (CheckWhiteListAsset(Runtime.CallingScriptHash))
             {
                 SaveUserStaking(from, amount);
             }
-            else 
+            else
             {
                 throw new Exception("bad asset");
             }
         }
+        public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
+        public static BigInteger GetWithdrawFee() 
+        {
+            ByteString rawWithdrawFee = Storage.Get(Storage.CurrentContext, withdrawFeeKey);
+            return rawWithdrawFee is null ? defaultWithdrawFee : (BigInteger)rawWithdrawFee;
+        }
+        public static bool SetWithdrawFee(BigInteger amount) 
+        {
+            if (!IsOwner()) throw new Exception("Not owner");
+            Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
+            return true;
+        }
+        #endregion
 
         #region WhiteList
         public static bool CheckWhiteListAsset(UInt160 assetHash) 
@@ -39,9 +78,46 @@ namespace HelloContract
             if (rawWhiteListResult is null) return false;
             return true;
         }
+
+        public static UInt160 GetStakeAssetHash() 
+        {
+            ByteString rawStakeAssetHash = Storage.Get(Storage.CurrentContext, stakeAssetHashKey);
+            return rawStakeAssetHash is null ? (UInt160)defaultStakeAssetHash : (UInt160)rawStakeAssetHash;
+        }
+
+        public static bool SetStakeAssetHash(UInt160 assetHash) 
+        {
+            if (!IsOwner()) throw new Exception("Not owner");
+            Storage.Put(Storage.CurrentContext, stakeAssetHashKey, assetHash);
+            return true;
+        }
         #endregion
 
         #region userStake
+        public static bool Unstake(UInt160 userAddress, BigInteger unstakeAmount) 
+        {
+            UInt160 assetHash = GetStakeAssetHash();
+            BigInteger amountBefore = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
+            if (!Runtime.CheckWitness(userAddress)) throw new Exception("CUWF");//check user witness fail
+            UserStakeInfo stakeInfo = GetUserStakeInfo(userAddress);
+            if (stakeInfo.isNewUser) throw new Exception("bad address");
+            if (stakeInfo.lastStakeAmount < unstakeAmount) throw new Exception("bad amount");
+            byte stakeLevel = GetUserStakingLevel(userAddress);
+            if (GetEnoughTimeForUnstake(stakeInfo.lastStakeHeight, Ledger.CurrentIndex, stakeLevel >= 4))
+            {
+                SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);
+                SaveUserStaking(userAddress, -unstakeAmount);
+            }
+            else 
+            {
+                BigInteger amountWithFee = unstakeAmount * GetWithdrawFee() / withdrawFeeDenominator;
+                SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, amountWithFee);
+                SaveUserStaking(userAddress, -unstakeAmount);
+            }
+            BigInteger amountAfter = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
+            if (amountBefore - unstakeAmount > amountAfter) throw new Exception("ANC");//amount is not correct after unstake;
+            return true;
+        }
         public static byte[] GetUserStakeKey(UInt160 userAddress) 
         {
             return userStakePrefix.Concat(userAddress);
@@ -53,7 +129,7 @@ namespace HelloContract
             {
                 SetUserStakeInfo(userAddress, new UserStakeInfo
                 {
-                    lastStakeTime = Runtime.Time,
+                    lastStakeHeight = Ledger.CurrentIndex,
                     lastStakeAmount = amount,
                     userStakeLevel = 0,
                     isNewUser = false
@@ -61,12 +137,12 @@ namespace HelloContract
             }
             else
             {
-                if (GetIfTimeEnough(userInfo.lastStakeTime, Runtime.Time))
+                if (GetIfTimeEnough(userInfo.lastStakeHeight, Ledger.CurrentIndex))
                 {
-                    int newUserLevel = GetStakeLevelByAmount(userInfo.lastStakeAmount);
+                    byte newUserLevel = GetStakeLevelByAmount(userInfo.lastStakeAmount);
                     SetUserStakeInfo(userAddress, new UserStakeInfo
                     {
-                        lastStakeTime = Runtime.Time,
+                        lastStakeHeight = Ledger.CurrentIndex,
                         lastStakeAmount = amount + userInfo.lastStakeAmount,
                         userStakeLevel = newUserLevel,
                         isNewUser = false
@@ -76,7 +152,7 @@ namespace HelloContract
                 {
                     SetUserStakeInfo(userAddress, new UserStakeInfo
                     {
-                        lastStakeTime = Runtime.Time,
+                        lastStakeHeight = Ledger.CurrentIndex,
                         lastStakeAmount = amount + userInfo.lastStakeAmount,
                         userStakeLevel = userInfo.userStakeLevel,
                         isNewUser = false
@@ -86,13 +162,13 @@ namespace HelloContract
             return true;
         }
         public static UserStakeInfo GetUserStakeInfo(UInt160 userAddress) 
-        {
+        {                       
             ByteString rawUserStakeInfo = Storage.Get(Storage.CurrentContext, GetUserStakeKey(userAddress));
             if (rawUserStakeInfo is null)
             {
                 return new UserStakeInfo
                 {
-                    lastStakeTime = 0,
+                    lastStakeHeight = 0,
                     lastStakeAmount = 0,
                     userStakeLevel = 0,
                     isNewUser = true
@@ -107,7 +183,7 @@ namespace HelloContract
         {
             Storage.Put(Storage.CurrentContext, GetUserStakeKey(userAddress), StdLib.Serialize(stakeInfo));
         }
-        public static int GetUserStakingLevel(UInt160 userAddress) 
+        public static byte GetUserStakingLevel(UInt160 userAddress) 
         {
             UserStakeInfo userInfo = GetUserStakeInfo(userAddress);
             if (userInfo.isNewUser == true)
@@ -116,7 +192,7 @@ namespace HelloContract
             }
             else 
             {
-                if (GetIfTimeEnough(userInfo.lastStakeTime, Runtime.Time))
+                if (GetIfTimeEnough(userInfo.lastStakeHeight, Ledger.CurrentIndex))
                 {
                     return GetStakeLevelByAmount(userInfo.lastStakeAmount);
                 }
@@ -138,14 +214,35 @@ namespace HelloContract
             else 
             {
                 return false;
+            }            
+        }
+
+        private static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd, bool ifHighLevel)
+        {
+            if (ifHighLevel) 
+            {
+                if ((BigInteger)(heightEnd - heightStart) / 2 >= GetUnstakeTimeSpan()) 
+                {
+                    return true;
+                }
             }
-            
+            if ((BigInteger)(heightEnd - heightStart) >= GetUnstakeTimeSpan()) 
+            {
+                return true;
+            } 
+            return false;
         }
 
         public static BigInteger GetTimeSpan() 
         {
             ByteString rawTimeSpan = Storage.Get(Storage.CurrentContext, timeSpanKey);
             return rawTimeSpan is null ? defaultTimeSpan : (BigInteger)rawTimeSpan;
+        }
+
+        public static BigInteger GetUnstakeTimeSpan()
+        {
+            ByteString rawUnstakeTimeSpan = Storage.Get(Storage.CurrentContext, unstakeTimeSpanKey);
+            return rawUnstakeTimeSpan is null ? defaultUnstakeTimeSpan : (BigInteger)rawUnstakeTimeSpan;
         }
 
         public static bool SetTimeSpan(BigInteger timeSpan) 
@@ -158,11 +255,23 @@ namespace HelloContract
             else 
             {
                 return false;
-            }
-            
+            }            
         }
 
-        public static int GetStakeLevelByAmount(BigInteger amount) 
+        public static bool SetUnstakeTimeSpan(BigInteger timeSpan)
+        {
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
+                return true;
+            }
+            else
+            {
+                return false;
+            }        
+        }
+
+        public static byte GetStakeLevelByAmount(BigInteger amount) 
         {
             StakeLevelAmount levelAmount = GetStakeLevelAmount();
             if (amount >= levelAmount.kryptoniteAmount) return 6;
@@ -172,6 +281,20 @@ namespace HelloContract
             if (amount >= levelAmount.silverAmount) return 2;
             if (amount >= levelAmount.bronzeAmount) return 1;
             return 0;
+        }
+
+        public static uint GetStakeWeightByLevel(byte level) 
+        {
+            switch (level) 
+            {
+                case 6: return 900;
+                case 5: return 400;
+                case 4: return 150;
+                case 3: return 65;
+                case 2: return 30;
+                case 1: return 10;
+                default: return 0;
+            }
         }
 
         public static StakeLevelAmount GetStakeLevelAmount() 
@@ -208,14 +331,28 @@ namespace HelloContract
 
         #endregion
 
-        public struct UserStakeInfo 
+        #region transferHelper
+        private static void SafeTransfer(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
-            public ulong lastStakeTime;
-            public BigInteger lastStakeAmount;
-            public int userStakeLevel;
-            public bool isNewUser;
+            var result = (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });
+            if (!result) throw new Exception("tf");//transfer fail;
         }
 
+        private static BigInteger GetBalanceOfToken(UInt160 assetHash, UInt160 address) 
+        {
+            var result = Contract.Call(assetHash, "balanceOf", CallFlags.All, new object[] { address });
+            return (BigInteger)result;
+        }
+        #endregion
+
+        #region struct
+        public struct UserStakeInfo 
+        {
+            public uint lastStakeHeight;
+            public BigInteger lastStakeAmount;
+            public byte userStakeLevel;
+            public bool isNewUser;
+        }
         public struct StakeLevelAmount 
         {
             public BigInteger bronzeAmount;//index: 1
@@ -225,5 +362,6 @@ namespace HelloContract
             public BigInteger diamondAmount;//index: 5
             public BigInteger kryptoniteAmount;//index: 6
         }
+        #endregion
     }
 }
