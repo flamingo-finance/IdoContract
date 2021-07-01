@@ -7,12 +7,12 @@ using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
 
-namespace HelloContract
+namespace IDOPlatform
 {
     [DisplayName("idoContract")]
     [ManifestExtra("Author", "NEO")]
     [ManifestExtra("Email", "developer@neo.org")]
-    [ManifestExtra("Description", "This is a initial dex offering")]
+    [ManifestExtra("Description", "This is a initial dex offering platform contract")]
     public class IdoContract : SmartContract
     {
         #region prefix
@@ -44,7 +44,7 @@ namespace HelloContract
 
         #region admin setting
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
-        public static void _deploy(object data, bool update)
+        public static void _deploy(object data)
         {
             if (((UInt160)data).Length != 20) throw new Exception("baa");//bad admin address
             Storage.Put(Storage.CurrentContext, superAdminKey, (UInt160)data);
