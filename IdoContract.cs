@@ -9,15 +9,16 @@ using Neo.SmartContract.Framework.Services;
 
 namespace HelloContract
 {
-    [DisplayName("HelloContract")]
+    [DisplayName("idoContract")]
     [ManifestExtra("Author", "NEO")]
     [ManifestExtra("Email", "developer@neo.org")]
-    [ManifestExtra("Description", "This is a HelloContract")]
+    [ManifestExtra("Description", "This is a initial dex offering")]
     public class IdoContract : SmartContract
     {
         #region prefix
         private static readonly byte[] userStakePrefix = new byte[] { 0x01, 0x01 };
         private static readonly byte[] stakeAssetHashKey = new byte[] { 0x01, 0x02 };
+        private static readonly byte[] userVotePrefix = new byte[] { 0x01, 0x03 };
         [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
         private static readonly byte[] defaultStakeAssetHash = default;
 
@@ -32,6 +33,9 @@ namespace HelloContract
         private static readonly byte[] withdrawFeeKey = { 0x04, 0x01 };
 
         private static readonly byte[] superAdminKey = { 0x05, 0x01 };
+
+        private static readonly byte[] registedProjectPrefix = new byte[] { 0x06, 0x01 };
+        private static readonly byte[] registedProjectTotalWeightPrefix = new byte[] { 0x06, 0x02 };
         #endregion
 
         #region event
@@ -204,6 +208,101 @@ namespace HelloContract
         }
         #endregion
 
+        #region project management
+        public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract ,UInt160 tokenHash) 
+        {
+            if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA");//bad initial args
+            if (ContractManagement.GetContract(tokenHash) is null || ContractManagement.GetContract(idoPairContract) is null) throw new Exception("BCH");//bad contract Hash       
+            if (!(GetRegistedProject(idoPairContract).isNewProject)) throw new Exception("PHBR");//project has been registed
+            SetRegistedProject(new RegistedProject
+            {
+                tokenOfferingAmount = tokenOfferingAmount,
+                tokenOfferingPrice = tokenOfferingPrice,
+                tokenHash = tokenHash,
+                isNewProject = false,
+                isReviewed = false
+            },
+            idoPairContract);
+            return true;
+        }
+
+        public static bool ReviewProject(UInt160 idoPairContract) 
+        {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
+            RegistedProject project = GetRegistedProject(idoPairContract);
+            project.reviewedHeight = Ledger.CurrentIndex;
+            project.isReviewed = true;
+            SetRegistedProject(project, idoPairContract);
+            return true;
+        }
+
+        private static void SetRegistedProject(RegistedProject project, UInt160 idoPairContract) => Storage.Put(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract), StdLib.Serialize(project));
+
+        public static RegistedProject GetRegistedProject(UInt160 idoPairContract) 
+        {
+            ByteString rawRegistedProject = Storage.Get(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract));
+            if (rawRegistedProject is null)
+            {
+                return new RegistedProject
+                {
+                    isNewProject = true
+                };
+            }
+            else 
+            {
+                return (RegistedProject)StdLib.Deserialize(rawRegistedProject);
+            }
+        }
+
+        public static bool VoteForProject(UInt160 user, UInt160 idoPairContractHash) 
+        {
+            if (!Runtime.CheckWitness(user)) throw new Exception("WCF");//witness check fail
+            RegistedProject project = GetRegistedProject(idoPairContractHash);
+            if (project.isNewProject == true) throw new Exception("BCH");// bad contract hash
+            if (project.isReviewed != true) throw new Exception("URP");// unreviewed project
+            if (Ledger.CurrentIndex - project.reviewedHeight >= 21602) throw new Exception("PTO");//project time out
+            BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
+            if (userWeight != 0) throw new Exception("UHV");// user has voted for project
+            uint weight = GetStakeWeightByLevel(GetUserStakeInfo(user).userStakeLevel);
+            AddProjectWeight(idoPairContractHash, weight);
+            Storage.Put(Storage.CurrentContext, userVotePrefix.Concat(idoPairContractHash).Concat(user), weight);
+            return true;
+        }
+
+        private static void AddProjectWeight(UInt160 idoPairContractHash, BigInteger amount) 
+        {
+            byte[] registedProjectTotalWeightKey = registedProjectTotalWeightPrefix.Concat(idoPairContractHash);
+            ByteString rawWeight = Storage.Get(Storage.CurrentContext, registedProjectTotalWeightKey);
+            if (rawWeight is null)
+            {
+                if(amount < 0) throw new Exception("BWA");//bad weight amount
+                Storage.Put(Storage.CurrentContext, registedProjectTotalWeightKey, amount);
+            }
+            else 
+            {
+                if ((BigInteger)rawWeight + amount < 0) throw new Exception("BWA");//bad weight amount
+                Storage.Put(Storage.CurrentContext, registedProjectTotalWeightKey, (BigInteger)rawWeight + amount);
+            }
+        }
+
+        public static BigInteger GetRegistedProjectTotalWeight(UInt160 idoPairContractHash)
+        {
+            byte[] registedProjectTotalWeightKey = registedProjectTotalWeightPrefix.Concat(idoPairContractHash);
+            ByteString rawWeight = Storage.Get(Storage.CurrentContext, registedProjectTotalWeightKey);
+            return rawWeight is null ? 0 : (BigInteger)rawWeight;
+        }
+
+        public static BigInteger GetRegistedProjectUserWeight(UInt160 idoPairContractHash, UInt160 user) 
+        {
+            byte[] userVoteKey = userVotePrefix.Concat(idoPairContractHash).Concat(user);
+            ByteString rawVoted = Storage.Get(Storage.CurrentContext, userVoteKey);
+            return rawVoted is null ? 0 : (BigInteger)rawVoted;
+        }
+
+
+
+        #endregion
+
         #region calculation
         private static bool GetIfTimeEnough(ulong timeStart, ulong timeEnd) 
         {
@@ -247,6 +346,7 @@ namespace HelloContract
 
         public static bool SetTimeSpan(BigInteger timeSpan) 
         {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
             if (timeSpan > 0)
             {
                 Storage.Put(Storage.CurrentContext, timeSpanKey, timeSpan);
@@ -260,6 +360,7 @@ namespace HelloContract
 
         public static bool SetUnstakeTimeSpan(BigInteger timeSpan)
         {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
             if (timeSpan > 0)
             {
                 Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
@@ -285,16 +386,16 @@ namespace HelloContract
 
         public static uint GetStakeWeightByLevel(byte level) 
         {
-            switch (level) 
+            return level switch
             {
-                case 6: return 900;
-                case 5: return 400;
-                case 4: return 150;
-                case 3: return 65;
-                case 2: return 30;
-                case 1: return 10;
-                default: return 0;
-            }
+                6 => 900,
+                5 => 400,
+                4 => 150,
+                3 => 65,
+                2 => 30,
+                1 => 10,
+                _ => 0,
+            };
         }
 
         public static StakeLevelAmount GetStakeLevelAmount() 
@@ -308,14 +409,14 @@ namespace HelloContract
         }
 
         public static bool SetStakeLevelAmount(
-            BigInteger bronze, 
-            BigInteger silver, 
-            BigInteger gold, 
-            BigInteger platinum, 
-            BigInteger diamond, 
+            BigInteger bronze,
+            BigInteger silver,
+            BigInteger gold,
+            BigInteger platinum,
+            BigInteger diamond,
             BigInteger kryptonite) 
         {
-            //TODO: admin check
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
             ByteString rawStakeLevelAmount = StdLib.Serialize(new StakeLevelAmount
             {
                 bronzeAmount = bronze,
@@ -361,6 +462,15 @@ namespace HelloContract
             public BigInteger platinumAmount;//index: 4
             public BigInteger diamondAmount;//index: 5
             public BigInteger kryptoniteAmount;//index: 6
+        }
+        public struct RegistedProject 
+        {
+            public uint reviewedHeight;
+            public BigInteger tokenOfferingAmount;
+            public BigInteger tokenOfferingPrice;
+            public UInt160 tokenHash;
+            public bool isNewProject;
+            public bool isReviewed;
         }
         #endregion
     }
