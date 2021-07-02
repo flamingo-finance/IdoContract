@@ -18,9 +18,14 @@ namespace IDOPlatform
         #region prefix
         private static readonly byte[] userStakePrefix = new byte[] { 0x01, 0x01 };
         private static readonly byte[] stakeAssetHashKey = new byte[] { 0x01, 0x02 };
-        private static readonly byte[] userVotePrefix = new byte[] { 0x01, 0x03 };
+        private static readonly byte[] spendAssetHashKey = new byte[] { 0x01, 0x03 };
+        private static readonly byte[] userVotePrefix = new byte[] { 0x01, 0x04 };
+        private static readonly byte[] userSwapPrefix = new byte[] { 0x01, 0x05 };
         [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
         private static readonly byte[] defaultStakeAssetHash = default;
+
+        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
+        private static readonly byte[] defaultSpendAssetHash = default;
 
         private static readonly byte[] timeSpanKey = new byte[] { 0x02, 0x01 };
         private static readonly ulong defaultTimeSpan = 100000000;
@@ -28,6 +33,7 @@ namespace IDOPlatform
         private static readonly uint defaultUnstakeTimeSpan = 6172;
         private static readonly byte[] levelAmountKey = { 0x03, 0x01 };
 
+        private const ulong priceDenominator = 1000_000_000_000_000_000;
         private const int withdrawFeeDenominator = 10000;
         private const int defaultWithdrawFee = 8000;
         private static readonly byte[] withdrawFeeKey = { 0x04, 0x01 };
@@ -52,7 +58,7 @@ namespace IDOPlatform
         }
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            if (CheckWhiteListAsset(Runtime.CallingScriptHash))
+            if (GetStakeAssetHash() == Runtime.CallingScriptHash)
             {
                 SaveUserStaking(from, amount);
             }
@@ -73,16 +79,10 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
             return true;
         }
+
         #endregion
 
         #region WhiteList
-        public static bool CheckWhiteListAsset(UInt160 assetHash) 
-        {
-            var rawWhiteListResult = Storage.Get(Storage.CurrentContext, assetHash);
-            if (rawWhiteListResult is null) return false;
-            return true;
-        }
-
         public static UInt160 GetStakeAssetHash() 
         {
             ByteString rawStakeAssetHash = Storage.Get(Storage.CurrentContext, stakeAssetHashKey);
@@ -93,6 +93,19 @@ namespace IDOPlatform
         {
             if (!IsOwner()) throw new Exception("Not owner");
             Storage.Put(Storage.CurrentContext, stakeAssetHashKey, assetHash);
+            return true;
+        }
+
+        public static UInt160 GetSpendAssetHash() 
+        {
+            ByteString rawSpendAssetHash = Storage.Get(Storage.CurrentContext, spendAssetHashKey);
+            return rawSpendAssetHash is null ? (UInt160)defaultSpendAssetHash : (UInt160)rawSpendAssetHash;
+        }
+
+        public static bool SetSpendAssetHash(UInt160 assetHash) 
+        {
+            if (!IsOwner()) throw new Exception("Not owner");
+            Storage.Put(Storage.CurrentContext, spendAssetHashKey, assetHash);
             return true;
         }
         #endregion
@@ -206,12 +219,44 @@ namespace IDOPlatform
                 }                
             }            
         }
+        public static BigInteger GetSwapAmoutMax(UInt160 user, UInt160 idoPairContractHash) 
+        {
+            BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
+            BigInteger totalWeight = GetRegistedProjectTotalWeight(idoPairContractHash);
+            BigInteger offeringAmount = GetRegistedProject(idoPairContractHash).tokenOfferingAmount;
+            return GetSwapAmountMaxImplementation(userWeight, totalWeight, offeringAmount);
+
+        }
+        private static BigInteger GetSwapAmountMaxImplementation(BigInteger userWeight, BigInteger totalWeight, BigInteger offeringAmount) 
+        {
+            return userWeight * offeringAmount / totalWeight;
+        }
+        public static BigInteger GetUserCanSwapAmount(UInt160 idoPairContract, UInt160 user) 
+        {
+            ByteString rawAmount = Storage.Get(Storage.CurrentContext, userSwapPrefix.Concat(idoPairContract).Concat(user));
+            BigInteger MaxAmount = GetSwapAmoutMax(user, idoPairContract);
+            return rawAmount is null ? MaxAmount : (MaxAmount - (BigInteger)rawAmount);
+        }
+        private static void AddUserSwapAmount(UInt160 idoPairContract, UInt160 user, BigInteger amount)
+        {
+            byte[] key = userSwapPrefix.Concat(idoPairContract).Concat(user);
+            ByteString rawOriginAmount = Storage.Get(Storage.CurrentContext, key);
+            if (rawOriginAmount is null)
+            {
+                Storage.Put(Storage.CurrentContext, key, amount);
+            }
+            else 
+            {
+                Storage.Put(Storage.CurrentContext, key, amount + (BigInteger)rawOriginAmount);
+            }
+        }
         #endregion
 
         #region project management
         public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract ,UInt160 tokenHash) 
         {
             if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA");//bad initial args
+            SafeTransfer(tokenHash, ((Transaction)Runtime.ScriptContainer).Sender, idoPairContract, tokenOfferingAmount);
             if (ContractManagement.GetContract(tokenHash) is null || ContractManagement.GetContract(idoPairContract) is null) throw new Exception("BCH");//bad contract Hash       
             if (!(GetRegistedProject(idoPairContract).isNewProject)) throw new Exception("PHBR");//project has been registed
             SetRegistedProject(new RegistedProject
@@ -220,12 +265,12 @@ namespace IDOPlatform
                 tokenOfferingPrice = tokenOfferingPrice,
                 tokenHash = tokenHash,
                 isNewProject = false,
-                isReviewed = false
+                isReviewed = false,
+                isEnd = false
             },
             idoPairContract);
             return true;
         }
-
         public static bool ReviewProject(UInt160 idoPairContract) 
         {
             if (!IsOwner()) throw new Exception("WCF");//witness check fail
@@ -235,9 +280,7 @@ namespace IDOPlatform
             SetRegistedProject(project, idoPairContract);
             return true;
         }
-
         private static void SetRegistedProject(RegistedProject project, UInt160 idoPairContract) => Storage.Put(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract), StdLib.Serialize(project));
-
         public static RegistedProject GetRegistedProject(UInt160 idoPairContract) 
         {
             ByteString rawRegistedProject = Storage.Get(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract));
@@ -253,13 +296,11 @@ namespace IDOPlatform
                 return (RegistedProject)StdLib.Deserialize(rawRegistedProject);
             }
         }
-
         public static bool VoteForProject(UInt160 user, UInt160 idoPairContractHash) 
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
-            if (project.isNewProject == true) throw new Exception("BCH");// bad contract hash
-            if (project.isReviewed != true) throw new Exception("URP");// unreviewed project
+            if (project.isNewProject == true || project.isReviewed != true|| project.isEnd == true) throw new Exception("BPS");// bad project status
             if (Ledger.CurrentIndex - project.reviewedHeight >= 21602) throw new Exception("PTO");//project time out
             BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
             if (userWeight != 0) throw new Exception("UHV");// user has voted for project
@@ -268,7 +309,15 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, userVotePrefix.Concat(idoPairContractHash).Concat(user), weight);
             return true;
         }
-
+        
+        public static bool EndProject(UInt160 idoPairContractHash) 
+        {
+            if(IsOwner()) throw new Exception("WCF");//witness check fail
+            RegistedProject project = GetRegistedProject(idoPairContractHash);
+            project.isEnd = true;
+            SetRegistedProject(project, idoPairContractHash);
+            return true;
+        }
         private static void AddProjectWeight(UInt160 idoPairContractHash, BigInteger amount) 
         {
             byte[] registedProjectTotalWeightKey = registedProjectTotalWeightPrefix.Concat(idoPairContractHash);
@@ -284,6 +333,39 @@ namespace IDOPlatform
                 Storage.Put(Storage.CurrentContext, registedProjectTotalWeightKey, (BigInteger)rawWeight + amount);
             }
         }
+        public static bool SwapToken(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
+        {
+            if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
+            RegistedProject project = GetRegistedProject(idoPairContractHash);
+            if(project.isEnd == true) throw new Exception("BPS");// bad project status
+            if (!project.isReviewed || !(Ledger.CurrentIndex - project.reviewedHeight < 21602)) throw new Exception("RNE");// project reviewed not end yet
+            BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
+            if (canSwapAmount < amount || amount <= 0) throw new Exception("BSA");//bad swap amount;
+            //transfer asset part
+            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / priceDenominator;
+            SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
+            if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct
+            AddUserSwapAmount(idoPairContractHash, user, amount);
+            return true;
+        }
+
+        public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
+        {
+            if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
+            RegistedProject project = GetRegistedProject(idoPairContractHash);
+            if (project.isEnd == true) throw new Exception("BPS");// bad project status
+            if (!project.isReviewed || !(Ledger.CurrentIndex - project.reviewedHeight < 43204)) throw new Exception("RNE");// project reviewed not end yet
+            if (amount <= 0) throw new Exception("BSA");//bad swap amount;
+            //transfer asset part
+            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / priceDenominator;
+            SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
+            if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct
+            return true;
+        }
 
         public static BigInteger GetRegistedProjectTotalWeight(UInt160 idoPairContractHash)
         {
@@ -291,16 +373,12 @@ namespace IDOPlatform
             ByteString rawWeight = Storage.Get(Storage.CurrentContext, registedProjectTotalWeightKey);
             return rawWeight is null ? 0 : (BigInteger)rawWeight;
         }
-
         public static BigInteger GetRegistedProjectUserWeight(UInt160 idoPairContractHash, UInt160 user) 
         {
             byte[] userVoteKey = userVotePrefix.Concat(idoPairContractHash).Concat(user);
             ByteString rawVoted = Storage.Get(Storage.CurrentContext, userVoteKey);
             return rawVoted is null ? 0 : (BigInteger)rawVoted;
         }
-
-
-
         #endregion
 
         #region calculation
@@ -432,7 +510,7 @@ namespace IDOPlatform
 
         #endregion
 
-        #region transferHelper
+        #region NEP17Helper
         private static void SafeTransfer(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
             var result = (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });
@@ -471,6 +549,7 @@ namespace IDOPlatform
             public UInt160 tokenHash;
             public bool isNewProject;
             public bool isReviewed;
+            public bool isEnd;
         }
         #endregion
     }
