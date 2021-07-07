@@ -254,7 +254,7 @@ namespace IDOPlatform
         #endregion
 
         #region project management
-        public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract ,UInt160 tokenHash) 
+        public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract , byte allowedLevel ,UInt160 tokenHash) 
         {
             if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA");//bad initial args
             SafeTransfer(tokenHash, ((Transaction)Runtime.ScriptContainer).Sender, idoPairContract, tokenOfferingAmount);
@@ -267,9 +267,10 @@ namespace IDOPlatform
                 tokenHash = tokenHash,
                 isNewProject = false,
                 isReviewed = false,
-                isEnd = false
+                isEnd = false,
+                allowedLevel = allowedLevel
             },
-            idoPairContract);
+            idoPairContract) ;
             return true;
         }
         public static bool ReviewProject(UInt160 idoPairContract) 
@@ -302,10 +303,12 @@ namespace IDOPlatform
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             if (project.isNewProject == true || project.isReviewed != true|| project.isEnd == true) throw new Exception("BPS");// bad project status
+            byte level = GetUserStakingLevel(user);
+            if (level < project.allowedLevel) throw new Exception("BUL");// bad user level
             if (Ledger.CurrentIndex - project.reviewedHeight >= 21602) throw new Exception("PTO");//project time out
             BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
             if (userWeight != 0) throw new Exception("UHV");// user has voted for project
-            uint weight = GetStakeWeightByLevel(GetUserStakingLevel(user));            
+            uint weight = GetStakeWeightByLevel(level);            
             AddProjectWeight(idoPairContractHash, weight);
             Storage.Put(Storage.CurrentContext, userVotePrefix.Concat(idoPairContractHash).Concat(user), weight);
             return true;
@@ -567,6 +570,7 @@ namespace IDOPlatform
             public bool isNewProject;
             public bool isReviewed;
             public bool isEnd;
+            public byte allowedLevel;
         }
         #endregion
     }
