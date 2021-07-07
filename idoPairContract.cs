@@ -83,7 +83,6 @@ namespace IDOPlatform
             SafeTransfer(GetAssetHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
-
         public static bool WithdrawToken(BigInteger amount)
         {
             if (!IsOwner()) throw new Exception("WCF");//witness check fail

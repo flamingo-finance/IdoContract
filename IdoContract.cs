@@ -31,6 +31,8 @@ namespace IDOPlatform
         private static readonly ulong defaultTimeSpan = 100000000;
         private static readonly byte[] unstakeTimeSpanKey = new byte[] { 0x02, 0x02 };
         private static readonly uint defaultUnstakeTimeSpan = 6172;
+        private static readonly byte[] voteTimeSpanKey = new byte[] { 0x02, 0x03 };
+        private static readonly uint defaultVoteTimeSpan = 21602;
         private static readonly byte[] levelAmountKey = { 0x03, 0x01 };
 
         private const ulong priceDenominator = 1000_000_000_000_000_000;
@@ -79,7 +81,6 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
             return true;
         }
-
         #endregion
 
         #region WhiteList
@@ -304,12 +305,11 @@ namespace IDOPlatform
             if (Ledger.CurrentIndex - project.reviewedHeight >= 21602) throw new Exception("PTO");//project time out
             BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
             if (userWeight != 0) throw new Exception("UHV");// user has voted for project
-            uint weight = GetStakeWeightByLevel(GetUserStakeInfo(user).userStakeLevel);
+            uint weight = GetStakeWeightByLevel(GetUserStakingLevel(user));            
             AddProjectWeight(idoPairContractHash, weight);
             Storage.Put(Storage.CurrentContext, userVotePrefix.Concat(idoPairContractHash).Concat(user), weight);
             return true;
-        }
-        
+        }     
         public static bool EndProject(UInt160 idoPairContractHash) 
         {
             if(IsOwner()) throw new Exception("WCF");//witness check fail
@@ -338,7 +338,7 @@ namespace IDOPlatform
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             if(project.isEnd == true) throw new Exception("BPS");// bad project status
-            if (!project.isReviewed || !(Ledger.CurrentIndex - project.reviewedHeight < 21602)) throw new Exception("RNE");// project reviewed not end yet
+            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
             if (canSwapAmount < amount || amount <= 0) throw new Exception("BSA");//bad swap amount;
             //transfer asset part
@@ -350,13 +350,12 @@ namespace IDOPlatform
             AddUserSwapAmount(idoPairContractHash, user, amount);
             return true;
         }
-
         public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             if (project.isEnd == true) throw new Exception("BPS");// bad project status
-            if (!project.isReviewed || !(Ledger.CurrentIndex - project.reviewedHeight < 43204)) throw new Exception("RNE");// project reviewed not end yet
+            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2* GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
             if (amount <= 0) throw new Exception("BSA");//bad swap amount;
             //transfer asset part
             BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
@@ -366,7 +365,6 @@ namespace IDOPlatform
             if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct
             return true;
         }
-
         public static BigInteger GetRegistedProjectTotalWeight(UInt160 idoPairContractHash)
         {
             byte[] registedProjectTotalWeightKey = registedProjectTotalWeightPrefix.Concat(idoPairContractHash);
@@ -382,7 +380,7 @@ namespace IDOPlatform
         #endregion
 
         #region calculation
-        private static bool GetIfTimeEnough(ulong timeStart, ulong timeEnd) 
+        public static bool GetIfTimeEnough(ulong timeStart, ulong timeEnd) 
         {
             if ((BigInteger)(timeEnd - timeStart) >= GetTimeSpan())
             {
@@ -394,7 +392,7 @@ namespace IDOPlatform
             }            
         }
 
-        private static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd, bool ifHighLevel)
+        public static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd, bool ifHighLevel)
         {
             if (ifHighLevel) 
             {
@@ -410,6 +408,12 @@ namespace IDOPlatform
             return false;
         }
 
+        public static BigInteger GetVoteTimeSpan() 
+        {
+            ByteString rawVoteTimeSpan = Storage.Get(Storage.CurrentContext, voteTimeSpanKey);
+            return rawVoteTimeSpan is null ? defaultVoteTimeSpan : (BigInteger)rawVoteTimeSpan;
+        }
+
         public static BigInteger GetTimeSpan() 
         {
             ByteString rawTimeSpan = Storage.Get(Storage.CurrentContext, timeSpanKey);
@@ -422,6 +426,20 @@ namespace IDOPlatform
             return rawUnstakeTimeSpan is null ? defaultUnstakeTimeSpan : (BigInteger)rawUnstakeTimeSpan;
         }
 
+        public static bool SetVoteTimeSpan(BigInteger timeSpan)
+        {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, voteTimeSpanKey, timeSpan);
+                return true;
+            }
+            else 
+            {
+                throw new Exception("BA");// bad args
+            }
+        }
+
         public static bool SetTimeSpan(BigInteger timeSpan) 
         {
             if (!IsOwner()) throw new Exception("WCF");//witness check fail
@@ -432,7 +450,7 @@ namespace IDOPlatform
             }
             else 
             {
-                return false;
+                throw new Exception("BA");// bad args
             }            
         }
 
@@ -446,7 +464,7 @@ namespace IDOPlatform
             }
             else
             {
-                return false;
+                throw new Exception("BA");// bad args
             }        
         }
 
@@ -507,7 +525,6 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, levelAmountKey, rawStakeLevelAmount);
             return true;
         }
-
         #endregion
 
         #region NEP17Helper
