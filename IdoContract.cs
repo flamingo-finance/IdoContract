@@ -52,7 +52,7 @@ namespace IDOPlatform
 
         #region admin setting
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
-        public static void _deploy(object data)
+        public static void _deploy(object data, bool update)
         {
             if (((UInt160)data).Length != 20) throw new Exception("baa");//bad admin address
             Storage.Put(Storage.CurrentContext, superAdminKey, (UInt160)data);
