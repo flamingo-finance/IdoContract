@@ -31,7 +31,7 @@ namespace IDOPlatform
         public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
 
         public const ulong price = 10000000000;
-        public static void _deploy(object data)
+        public static void _deploy(object data, bool update)
         {
             if (((UInt160)data).Length != 20) throw new Exception("BAA");//bad admin address
             Storage.Put(Storage.CurrentContext, superAdminKey, (UInt160)data);
@@ -46,7 +46,7 @@ namespace IDOPlatform
         }
         public static bool SetAssetHash(UInt160 assetHash) 
         {
-            if (IsOwner()) throw new Exception("not owner");
+            if (!IsOwner()) throw new Exception("not owner");
             Storage.Put(Storage.CurrentContext, assetHashKey, assetHash);
             return true;
         }
@@ -57,7 +57,7 @@ namespace IDOPlatform
         }
         public static bool SetTokenHash(UInt160 tokenHash) 
         {
-            if(IsOwner()) throw new Exception("not owner");
+            if(!IsOwner()) throw new Exception("not owner");
             Storage.Put(Storage.CurrentContext, tokenHashKey, tokenHash);
             return true;
         }
@@ -68,7 +68,7 @@ namespace IDOPlatform
         }
         public static bool SetIdoContract(UInt160 contractHash) 
         {
-            if(IsOwner()) throw new Exception("not owner");
+            if(!IsOwner()) throw new Exception("not owner");
             Storage.Put(Storage.CurrentContext, idoContractHashKey, contractHash);
             return true;
         }
