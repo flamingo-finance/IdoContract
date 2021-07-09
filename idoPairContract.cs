@@ -13,6 +13,7 @@ namespace IDOPlatform
     [ManifestExtra("Author", "NEO")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "This is a initial dex offering pair contract")]
+    [ContractPermission("*")]
     public class IdoPairContract : SmartContract
     {
         private static readonly byte[] superAdminKey = { 0x01, 0x01 };

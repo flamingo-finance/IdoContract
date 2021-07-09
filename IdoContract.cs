@@ -13,6 +13,7 @@ namespace IDOPlatform
     [ManifestExtra("Author", "NEO")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "This is a initial dex offering platform contract")]
+    [ContractPermission("*")]
     public class IdoContract : SmartContract
     {
         #region prefix
@@ -399,7 +400,7 @@ namespace IDOPlatform
         {
             if (ifHighLevel) 
             {
-                if ((BigInteger)(heightEnd - heightStart) / 2 >= GetUnstakeTimeSpan()) 
+                if ((BigInteger)(heightEnd - heightStart) * 2 >= GetUnstakeTimeSpan()) 
                 {
                     return true;
                 }
