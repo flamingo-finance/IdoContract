@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Numerics;
 using Neo;
@@ -31,7 +31,7 @@ namespace IDOPlatform
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
         public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
 
-        public const ulong price = 10000000000;
+        public const ulong price = 21;
         public static void _deploy(object data, bool update)
         {
             if (((UInt160)data).Length != 20) throw new Exception("BAA");//bad admin address
@@ -90,6 +90,23 @@ namespace IDOPlatform
             SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
+
+        public static void Update(ByteString nefFile, string manifest, object data = null)
+        {
+            if (!IsOwner()) throw new Exception("No authorization.");
+
+            ContractManagement.Update(nefFile, manifest, data);
+        }
+
+        public static bool TransferOwnership(UInt160 newOwner)
+        {
+            if(!newOwner.IsValid) throw new Exception("The new owner address is invalid.");
+            if(!IsOwner()) throw new Exception("No authorization.");
+
+            Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
+            return true;
+        }
+
         private static void SafeTransfer(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
             var result = (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });

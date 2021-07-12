@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Numerics;
 using Neo;
@@ -82,6 +82,22 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
             return true;
         }
+
+        public static void Update(ByteString nefFile, string manifest, object data = null)
+        {
+            if (!IsOwner()) throw new Exception("No authorization.");
+
+            ContractManagement.Update(nefFile, manifest, data);
+        }
+
+        public static bool TransferOwnership(UInt160 newOwner)
+        {
+            if (!newOwner.IsValid) throw new Exception("The new owner address is invalid.");
+            if (!IsOwner()) throw new Exception("No authorization.");
+
+            Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
+            return true;
+        }
         #endregion
 
         #region WhiteList
@@ -137,7 +153,7 @@ namespace IDOPlatform
             if (amountBefore - unstakeAmount > amountAfter) throw new Exception("ANC");//amount is not correct after unstake;
             return true;
         }
-        public static byte[] GetUserStakeKey(UInt160 userAddress) 
+        private static byte[] GetUserStakeKey(UInt160 userAddress) 
         {
             return userStakePrefix.Concat(userAddress);
         }
