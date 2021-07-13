@@ -77,7 +77,7 @@ namespace IDOPlatform
         public static UInt160 GetTokenHash() 
         {
             ByteString rawTokenHash = Storage.Get(Storage.CurrentContext, tokenHashKey);
-            return rawTokenHash is null ? (UInt160)rawTokenHash : (UInt160)defaultTokenHash;
+            return rawTokenHash is null ? (UInt160)defaultTokenHash : (UInt160)rawTokenHash;
         }
         public static bool SetIdoContract(UInt160 contractHash) 
         {
