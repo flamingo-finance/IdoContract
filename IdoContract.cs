@@ -73,12 +73,12 @@ namespace IDOPlatform
             }
         }
         public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
-        public static BigInteger GetWithdrawFee() 
+        public static BigInteger GetWithdrawFee()
         {
             ByteString rawWithdrawFee = Storage.Get(Storage.CurrentContext, withdrawFeeKey);
             return rawWithdrawFee is null ? defaultWithdrawFee : (BigInteger)rawWithdrawFee;
         }
-        public static bool SetWithdrawFee(BigInteger amount) 
+        public static bool SetWithdrawFee(BigInteger amount)
         {
             if (!IsOwner()) throw new Exception("Not owner");
             Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
@@ -103,26 +103,26 @@ namespace IDOPlatform
         #endregion
 
         #region WhiteList
-        public static UInt160 GetStakeAssetHash() 
+        public static UInt160 GetStakeAssetHash()
         {
             ByteString rawStakeAssetHash = Storage.Get(Storage.CurrentContext, stakeAssetHashKey);
             return rawStakeAssetHash is null ? (UInt160)defaultStakeAssetHash : (UInt160)rawStakeAssetHash;
         }
 
-        public static bool SetStakeAssetHash(UInt160 assetHash) 
+        public static bool SetStakeAssetHash(UInt160 assetHash)
         {
             if (!IsOwner()) throw new Exception("Not owner");
             Storage.Put(Storage.CurrentContext, stakeAssetHashKey, assetHash);
             return true;
         }
 
-        public static UInt160 GetSpendAssetHash() 
+        public static UInt160 GetSpendAssetHash()
         {
             ByteString rawSpendAssetHash = Storage.Get(Storage.CurrentContext, spendAssetHashKey);
             return rawSpendAssetHash is null ? (UInt160)defaultSpendAssetHash : (UInt160)rawSpendAssetHash;
         }
 
-        public static bool SetSpendAssetHash(UInt160 assetHash) 
+        public static bool SetSpendAssetHash(UInt160 assetHash)
         {
             if (!IsOwner()) throw new Exception("Not owner");
             Storage.Put(Storage.CurrentContext, spendAssetHashKey, assetHash);
@@ -131,7 +131,7 @@ namespace IDOPlatform
         #endregion
 
         #region userStake
-        public static bool Unstake(UInt160 userAddress, BigInteger unstakeAmount) 
+        public static bool Unstake(UInt160 userAddress, BigInteger unstakeAmount)
         {
             UInt160 assetHash = GetStakeAssetHash();
             BigInteger amountBefore = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
@@ -145,7 +145,7 @@ namespace IDOPlatform
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);
                 SaveUserStaking(userAddress, -unstakeAmount);
             }
-            else 
+            else
             {
                 BigInteger amountWithFee = unstakeAmount * GetWithdrawFee() / withdrawFeeDenominator;
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, amountWithFee);
@@ -155,11 +155,11 @@ namespace IDOPlatform
             if (amountBefore - unstakeAmount > amountAfter) throw new Exception("ANC");//amount is not correct after unstake;
             return true;
         }
-        private static byte[] GetUserStakeKey(UInt160 userAddress) 
+        private static byte[] GetUserStakeKey(UInt160 userAddress)
         {
             return userStakePrefix.Concat(userAddress);
         }
-        private static bool SaveUserStaking(UInt160 userAddress, BigInteger amount) 
+        private static bool SaveUserStaking(UInt160 userAddress, BigInteger amount)
         {
             UserStakeInfo userInfo = GetUserStakeInfo(userAddress);
             if (userInfo.isNewUser)
@@ -170,7 +170,7 @@ namespace IDOPlatform
                     lastStakeAmount = amount,
                     userStakeLevel = 0,
                     isNewUser = false
-                });               
+                });
             }
             else
             {
@@ -185,7 +185,7 @@ namespace IDOPlatform
                         isNewUser = false
                     });
                 }
-                else 
+                else
                 {
                     SetUserStakeInfo(userAddress, new UserStakeInfo
                     {
@@ -198,8 +198,8 @@ namespace IDOPlatform
             }
             return true;
         }
-        public static UserStakeInfo GetUserStakeInfo(UInt160 userAddress) 
-        {                       
+        public static UserStakeInfo GetUserStakeInfo(UInt160 userAddress)
+        {
             ByteString rawUserStakeInfo = Storage.Get(Storage.CurrentContext, GetUserStakeKey(userAddress));
             if (rawUserStakeInfo is null)
             {
@@ -211,35 +211,35 @@ namespace IDOPlatform
                     isNewUser = true
                 };
             }
-            else 
+            else
             {
                 return (UserStakeInfo)StdLib.Deserialize(rawUserStakeInfo);
             }
         }
-        private static void SetUserStakeInfo(UInt160 userAddress ,UserStakeInfo stakeInfo) 
+        private static void SetUserStakeInfo(UInt160 userAddress, UserStakeInfo stakeInfo)
         {
             Storage.Put(Storage.CurrentContext, GetUserStakeKey(userAddress), StdLib.Serialize(stakeInfo));
         }
-        public static byte GetUserStakingLevel(UInt160 userAddress) 
+        public static byte GetUserStakingLevel(UInt160 userAddress)
         {
             UserStakeInfo userInfo = GetUserStakeInfo(userAddress);
             if (userInfo.isNewUser == true)
             {
                 return 0;
             }
-            else 
+            else
             {
                 if (GetIfTimeEnough(userInfo.lastStakeHeight, Ledger.CurrentIndex))
                 {
                     return GetStakeLevelByAmount(userInfo.lastStakeAmount);
                 }
-                else 
+                else
                 {
                     return GetUserStakeInfo(userAddress).userStakeLevel;
-                }                
-            }            
+                }
+            }
         }
-        public static BigInteger GetSwapAmoutMax(UInt160 user, UInt160 idoPairContractHash) 
+        public static BigInteger GetSwapAmoutMax(UInt160 user, UInt160 idoPairContractHash)
         {
             BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
             BigInteger totalWeight = GetRegistedProjectTotalWeight(idoPairContractHash);
@@ -247,11 +247,11 @@ namespace IDOPlatform
             return GetSwapAmountMaxImplementation(userWeight, totalWeight, offeringAmount);
 
         }
-        private static BigInteger GetSwapAmountMaxImplementation(BigInteger userWeight, BigInteger totalWeight, BigInteger offeringAmount) 
+        private static BigInteger GetSwapAmountMaxImplementation(BigInteger userWeight, BigInteger totalWeight, BigInteger offeringAmount)
         {
             return userWeight * offeringAmount / totalWeight;
         }
-        public static BigInteger GetUserCanSwapAmount(UInt160 idoPairContract, UInt160 user) 
+        public static BigInteger GetUserCanSwapAmount(UInt160 idoPairContract, UInt160 user)
         {
             ByteString rawAmount = Storage.Get(Storage.CurrentContext, userSwapPrefix.Concat(idoPairContract).Concat(user));
             BigInteger MaxAmount = GetSwapAmoutMax(user, idoPairContract);
@@ -265,21 +265,19 @@ namespace IDOPlatform
             {
                 Storage.Put(Storage.CurrentContext, key, amount);
             }
-            else 
+            else
             {
                 Storage.Put(Storage.CurrentContext, key, amount + (BigInteger)rawOriginAmount);
             }
         }
-        private static byte[] GetUserClaimAmountKey(UInt160 idoPairContract, UInt160 user) 
+        private static byte[] GetUserClaimAmountKey(UInt160 idoPairContract, UInt160 user)
         {
             return userClaimPrefix.Concat(idoPairContract).Concat(user);
         }
-
-
         #endregion
 
         #region project management
-        public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract , byte allowedLevel ,UInt160 tokenHash) 
+        public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract, byte allowedLevel, UInt160 tokenHash)
         {
             UInt160 sender = ((Transaction)Runtime.ScriptContainer).Sender;
             if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA");//bad initial args
@@ -297,10 +295,10 @@ namespace IDOPlatform
                 isEnd = false,
                 allowedLevel = allowedLevel
             },
-            idoPairContract) ;
+            idoPairContract);
             return true;
         }
-        public static bool ReviewProject(UInt160 idoPairContract) 
+        public static bool ReviewProject(UInt160 idoPairContract)
         {
             if (!IsOwner()) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContract);
@@ -310,7 +308,7 @@ namespace IDOPlatform
             return true;
         }
         private static void SetRegistedProject(RegistedProject project, UInt160 idoPairContract) => Storage.Put(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract), StdLib.Serialize(project));
-        public static RegistedProject GetRegistedProject(UInt160 idoPairContract) 
+        public static RegistedProject GetRegistedProject(UInt160 idoPairContract)
         {
             ByteString rawRegistedProject = Storage.Get(Storage.CurrentContext, registedProjectPrefix.Concat(idoPairContract));
             if (rawRegistedProject is null)
@@ -320,54 +318,54 @@ namespace IDOPlatform
                     isNewProject = true
                 };
             }
-            else 
+            else
             {
                 return (RegistedProject)StdLib.Deserialize(rawRegistedProject);
             }
         }
-        public static bool VoteForProject(UInt160 user, UInt160 idoPairContractHash) 
+        public static bool VoteForProject(UInt160 user, UInt160 idoPairContractHash)
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
-            if (project.isNewProject == true || project.isReviewed != true|| project.isEnd == true) throw new Exception("BPS");// bad project status
+            if (project.isNewProject == true || project.isReviewed != true || project.isEnd == true) throw new Exception("BPS");// bad project status
             byte level = GetUserStakingLevel(user);
             if (level < project.allowedLevel) throw new Exception("BUL");// bad user level
             if (Ledger.CurrentIndex - project.reviewedHeight >= 21602) throw new Exception("PTO");//project time out
             BigInteger userWeight = GetRegistedProjectUserWeight(idoPairContractHash, user);
             if (userWeight != 0) throw new Exception("UHV");// user has voted for project
-            uint weight = GetStakeWeightByLevel(level);            
+            uint weight = GetStakeWeightByLevel(level);
             AddProjectWeight(idoPairContractHash, weight);
             Storage.Put(Storage.CurrentContext, userVotePrefix.Concat(idoPairContractHash).Concat(user), weight);
             return true;
-        }     
-        public static bool EndProject(UInt160 idoPairContractHash) 
+        }
+        public static bool EndProject(UInt160 idoPairContractHash)
         {
-            if(IsOwner()) throw new Exception("WCF");//witness check fail
+            if (IsOwner()) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             project.isEnd = true;
             SetRegistedProject(project, idoPairContractHash);
             return true;
         }
-        private static void AddProjectWeight(UInt160 idoPairContractHash, BigInteger amount) 
+        private static void AddProjectWeight(UInt160 idoPairContractHash, BigInteger amount)
         {
             byte[] registedProjectTotalWeightKey = registedProjectTotalWeightPrefix.Concat(idoPairContractHash);
             ByteString rawWeight = Storage.Get(Storage.CurrentContext, registedProjectTotalWeightKey);
             if (rawWeight is null)
             {
-                if(amount < 0) throw new Exception("BWA");//bad weight amount
+                if (amount < 0) throw new Exception("BWA");//bad weight amount
                 Storage.Put(Storage.CurrentContext, registedProjectTotalWeightKey, amount);
             }
-            else 
+            else
             {
                 if ((BigInteger)rawWeight + amount < 0) throw new Exception("BWA");//bad weight amount
                 Storage.Put(Storage.CurrentContext, registedProjectTotalWeightKey, (BigInteger)rawWeight + amount);
             }
         }
-        public static bool SwapToken(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
+        public static bool SwapToken(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
-            if(project.isEnd == true) throw new Exception("BPS");// bad project status
+            if (project.isEnd == true) throw new Exception("BPS");// bad project status
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
             if (canSwapAmount < amount || amount <= 0) throw new Exception("BSA");//bad swap amount;
@@ -383,8 +381,7 @@ namespace IDOPlatform
             AddUserSwapAmount(idoPairContractHash, user, amount);
             return true;
         }
-
-        private static void AddUserClaimAmount(UInt160 idoPairContractHash, UInt160 user, BigInteger amount) 
+        private static void AddUserClaimAmount(UInt160 idoPairContractHash, UInt160 user, BigInteger amount)
         {
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
@@ -392,23 +389,20 @@ namespace IDOPlatform
             if (amount < 0) throw new Exception("BAM");// bad amount
             Storage.Put(Storage.CurrentContext, key, amount);
         }
-
-        public static BigInteger GetUserClaimAmount(UInt160 idoPairContractHash, UInt160 user) 
+        public static BigInteger GetUserClaimAmount(UInt160 idoPairContractHash, UInt160 user)
         {
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             return GetUserClaimAmountImple(key);
         }
-
-        private static BigInteger GetUserClaimAmountImple(byte[] key) 
+        private static BigInteger GetUserClaimAmountImple(byte[] key)
         {
             ByteString rawAmount = Storage.Get(Storage.CurrentContext, key);
             return rawAmount is null ? 0 : (BigInteger)rawAmount;
         }
-
-        public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash) 
+        public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash)
         {
             RegistedProject project = GetRegistedProject(idoPairContractHash);
-            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2*GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
+            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
             if (oldAmount <= 0) throw new Exception("NCT");// no unclaimed token            
@@ -416,13 +410,12 @@ namespace IDOPlatform
             AddUserClaimAmount(idoPairContractHash, user, -oldAmount);
             return true;
         }
-
-        public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
+        public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             if (project.isEnd == true) throw new Exception("BPS");// bad project status
-            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2* GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
+            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
             if (amount <= 0) throw new Exception("BSA");//bad swap amount;
             //transfer asset part
             BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
@@ -439,7 +432,7 @@ namespace IDOPlatform
             ByteString rawWeight = Storage.Get(Storage.CurrentContext, registedProjectTotalWeightKey);
             return rawWeight is null ? 0 : (BigInteger)rawWeight;
         }
-        public static BigInteger GetRegistedProjectUserWeight(UInt160 idoPairContractHash, UInt160 user) 
+        public static BigInteger GetRegistedProjectUserWeight(UInt160 idoPairContractHash, UInt160 user)
         {
             byte[] userVoteKey = userVotePrefix.Concat(idoPairContractHash).Concat(user);
             ByteString rawVoted = Storage.Get(Storage.CurrentContext, userVoteKey);
@@ -448,95 +441,57 @@ namespace IDOPlatform
         #endregion
 
         #region calculation
-        public static bool GetIfTimeEnough(ulong timeStart, ulong timeEnd) 
+        public static bool GetIfTimeEnough(ulong timeStart, ulong timeEnd)
         {
             if ((BigInteger)(timeEnd - timeStart) >= GetTimeSpan())
             {
                 return true;
             }
-            else 
+            else
             {
                 return false;
-            }            
+            }
         }
-
         public static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd, bool ifHighLevel)
         {
-            if (ifHighLevel) 
+            if (ifHighLevel)
             {
-                if ((BigInteger)(heightEnd - heightStart) * 2 >= GetUnstakeTimeSpan()) 
+                if ((BigInteger)(heightEnd - heightStart) * 2 >= GetUnstakeTimeSpan())
                 {
                     return true;
                 }
             }
-            if ((BigInteger)(heightEnd - heightStart) >= GetUnstakeTimeSpan()) 
+            if ((BigInteger)(heightEnd - heightStart) >= GetUnstakeTimeSpan())
             {
                 return true;
-            } 
+            }
             return false;
         }
-
-        public static BigInteger GetVoteTimeSpan() 
+        public static BigInteger GetVoteTimeSpan()
         {
             ByteString rawVoteTimeSpan = Storage.Get(Storage.CurrentContext, voteTimeSpanKey);
             return rawVoteTimeSpan is null ? defaultVoteTimeSpan : (BigInteger)rawVoteTimeSpan;
         }
-
-        public static BigInteger GetTimeSpan() 
+        public static BigInteger GetTimeSpan()
         {
             ByteString rawTimeSpan = Storage.Get(Storage.CurrentContext, timeSpanKey);
             return rawTimeSpan is null ? defaultTimeSpan : (BigInteger)rawTimeSpan;
         }
-
         public static BigInteger GetUnstakeTimeSpan()
         {
             ByteString rawUnstakeTimeSpan = Storage.Get(Storage.CurrentContext, unstakeTimeSpanKey);
             return rawUnstakeTimeSpan is null ? defaultUnstakeTimeSpan : (BigInteger)rawUnstakeTimeSpan;
         }
-
-        public static bool SetVoteTimeSpan(BigInteger timeSpan)
+        public static StakeLevelAmount GetStakeLevelAmount()
         {
-            if (!IsOwner()) throw new Exception("WCF");//witness check fail
-            if (timeSpan > 0)
+            ByteString rawAmount = Storage.Get(Storage.CurrentContext, levelAmountKey);
+            if (!(rawAmount is null))
             {
-                Storage.Put(Storage.CurrentContext, voteTimeSpanKey, timeSpan);
-                return true;
+                return (StakeLevelAmount)StdLib.Deserialize(rawAmount);
             }
-            else 
-            {
-                throw new Exception("BA");// bad args
-            }
+            throw new Exception("bad level amount");
         }
-
-        public static bool SetTimeSpan(BigInteger timeSpan) 
-        {
-            if (!IsOwner()) throw new Exception("WCF");//witness check fail
-            if (timeSpan > 0)
-            {
-                Storage.Put(Storage.CurrentContext, timeSpanKey, timeSpan);
-                return true;
-            }
-            else 
-            {
-                throw new Exception("BA");// bad args
-            }            
-        }
-
-        public static bool SetUnstakeTimeSpan(BigInteger timeSpan)
-        {
-            if (!IsOwner()) throw new Exception("WCF");//witness check fail
-            if (timeSpan > 0)
-            {
-                Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
-                return true;
-            }
-            else
-            {
-                throw new Exception("BA");// bad args
-            }        
-        }
-
-        public static byte GetStakeLevelByAmount(BigInteger amount) 
+        public static byte GetStakeLevelByAmount(BigInteger amount)
         {
             StakeLevelAmount levelAmount = GetStakeLevelAmount();
             if (amount >= levelAmount.kryptoniteAmount) return 6;
@@ -547,8 +502,7 @@ namespace IDOPlatform
             if (amount >= levelAmount.bronzeAmount) return 1;
             return 0;
         }
-
-        public static uint GetStakeWeightByLevel(byte level) 
+        public static uint GetStakeWeightByLevel(byte level)
         {
             return level switch
             {
@@ -561,24 +515,10 @@ namespace IDOPlatform
                 _ => 0,
             };
         }
+        #endregion
 
-        public static StakeLevelAmount GetStakeLevelAmount() 
-        {
-            ByteString rawAmount = Storage.Get(Storage.CurrentContext, levelAmountKey);
-            if(!(rawAmount is null))
-            {
-                return (StakeLevelAmount)StdLib.Deserialize(rawAmount);
-            }
-            throw new Exception("bad level amount");
-        }
-
-        public static bool SetStakeLevelAmount(
-            BigInteger bronze,
-            BigInteger silver,
-            BigInteger gold,
-            BigInteger platinum,
-            BigInteger diamond,
-            BigInteger kryptonite) 
+        #region adminManagement
+        public static bool SetStakeLevelAmount( BigInteger bronze, BigInteger silver,BigInteger gold, BigInteger platinum, BigInteger diamond, BigInteger kryptonite)
         {
             if (!IsOwner()) throw new Exception("WCF");//witness check fail
             ByteString rawStakeLevelAmount = StdLib.Serialize(new StakeLevelAmount
@@ -593,6 +533,45 @@ namespace IDOPlatform
             Storage.Put(Storage.CurrentContext, levelAmountKey, rawStakeLevelAmount);
             return true;
         }
+        public static bool SetVoteTimeSpan(BigInteger timeSpan)
+        {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, voteTimeSpanKey, timeSpan);
+                return true;
+            }
+            else
+            {
+                throw new Exception("BA");// bad args
+            }
+        }
+        public static bool SetTimeSpan(BigInteger timeSpan)
+        {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, timeSpanKey, timeSpan);
+                return true;
+            }
+            else
+            {
+                throw new Exception("BA");// bad args
+            }
+        }
+        public static bool SetUnstakeTimeSpan(BigInteger timeSpan)
+        {
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
+                return true;
+            }
+            else
+            {
+                throw new Exception("BA");// bad args
+            }
+        }
         #endregion
 
         #region NEP17Helper
@@ -602,7 +581,7 @@ namespace IDOPlatform
             if (!result) throw new Exception("tf");//transfer fail;
         }
 
-        private static BigInteger GetBalanceOfToken(UInt160 assetHash, UInt160 address) 
+        private static BigInteger GetBalanceOfToken(UInt160 assetHash, UInt160 address)
         {
             var result = Contract.Call(assetHash, "balanceOf", CallFlags.All, new object[] { address });
             return (BigInteger)result;
@@ -610,14 +589,14 @@ namespace IDOPlatform
         #endregion
 
         #region struct
-        public struct UserStakeInfo 
+        public struct UserStakeInfo
         {
             public uint lastStakeHeight;
             public BigInteger lastStakeAmount;
             public byte userStakeLevel;
             public bool isNewUser;
         }
-        public struct StakeLevelAmount 
+        public struct StakeLevelAmount
         {
             public BigInteger bronzeAmount;//index: 1
             public BigInteger silverAmount;//index: 2
@@ -626,7 +605,7 @@ namespace IDOPlatform
             public BigInteger diamondAmount;//index: 5
             public BigInteger kryptoniteAmount;//index: 6
         }
-        public struct RegistedProject 
+        public struct RegistedProject
         {
             public uint reviewedHeight;
             public BigInteger tokenOfferingAmount;
