@@ -22,6 +22,7 @@ namespace IDOPlatform
         private static readonly byte[] spendAssetHashKey = new byte[] { 0x01, 0x03 };
         private static readonly byte[] userVotePrefix = new byte[] { 0x01, 0x04 };
         private static readonly byte[] userSwapPrefix = new byte[] { 0x01, 0x05 };
+        private static readonly byte[] userClaimPrefix = new byte[] { 0x01, 0x06 };
         [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
         private static readonly byte[] defaultStakeAssetHash = default;
 
@@ -49,6 +50,7 @@ namespace IDOPlatform
 
         #region event
         public static event Action<byte[], UInt160> OnDeploy;
+        public static event Action<UInt160, BigInteger> SwapAsset;
         #endregion
 
         #region admin setting
@@ -268,13 +270,21 @@ namespace IDOPlatform
                 Storage.Put(Storage.CurrentContext, key, amount + (BigInteger)rawOriginAmount);
             }
         }
+        private static byte[] GetUserClaimAmountKey(UInt160 idoPairContract, UInt160 user) 
+        {
+            return userClaimPrefix.Concat(idoPairContract).Concat(user);
+        }
+
+
         #endregion
 
         #region project management
         public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract , byte allowedLevel ,UInt160 tokenHash) 
         {
+            UInt160 sender = ((Transaction)Runtime.ScriptContainer).Sender;
             if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA");//bad initial args
-            SafeTransfer(tokenHash, ((Transaction)Runtime.ScriptContainer).Sender, idoPairContract, tokenOfferingAmount);
+            SwapAsset(sender, tokenOfferingAmount);
+            SafeTransfer(tokenHash, sender, idoPairContract, tokenOfferingAmount);
             if (ContractManagement.GetContract(tokenHash) is null || ContractManagement.GetContract(idoPairContract) is null) throw new Exception("BCH");//bad contract Hash       
             if (!(GetRegistedProject(idoPairContract).isNewProject)) throw new Exception("PHBR");//project has been registed
             SetRegistedProject(new RegistedProject
@@ -362,14 +372,51 @@ namespace IDOPlatform
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
             if (canSwapAmount < amount || amount <= 0) throw new Exception("BSA");//bad swap amount;
             //transfer asset part
-            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
             BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / priceDenominator;
-            SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
-            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
+            SwapAsset(user, amount);
+            SafeTransfer(GetSpendAssetHash(), user, Runtime.ExecutingScriptHash, spendAssetAmount);
+            SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, idoPairContractHash, spendAssetAmount);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
             if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct
+            AddUserClaimAmount(idoPairContractHash, user, amount);
             AddUserSwapAmount(idoPairContractHash, user, amount);
             return true;
         }
+
+        private static void AddUserClaimAmount(UInt160 idoPairContractHash, UInt160 user, BigInteger amount) 
+        {
+            byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
+            BigInteger oldAmount = GetUserClaimAmountImple(key);
+            amount = amount + oldAmount;
+            if (amount < 0) throw new Exception("BAM");// bad amount
+            Storage.Put(Storage.CurrentContext, key, amount);
+        }
+
+        public static BigInteger GetUserClaimAmount(UInt160 idoPairContractHash, UInt160 user) 
+        {
+            byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
+            return GetUserClaimAmountImple(key);
+        }
+
+        private static BigInteger GetUserClaimAmountImple(byte[] key) 
+        {
+            ByteString rawAmount = Storage.Get(Storage.CurrentContext, key);
+            return rawAmount is null ? 0 : (BigInteger)rawAmount;
+        }
+
+        public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash) 
+        {
+            RegistedProject project = GetRegistedProject(idoPairContractHash);
+            if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2*GetVoteTimeSpan()) throw new Exception("RNE");// project reviewed not end yet
+            byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
+            BigInteger oldAmount = GetUserClaimAmountImple(key);
+            if (oldAmount <= 0) throw new Exception("NCT");// no unclaimed token            
+            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
+            AddUserClaimAmount(idoPairContractHash, user, -oldAmount);
+            return true;
+        }
+
         public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount) 
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF");// witness check fail
@@ -380,6 +427,7 @@ namespace IDOPlatform
             //transfer asset part
             BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
             BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / priceDenominator;
+            SwapAsset(user, amount);
             SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
             if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct

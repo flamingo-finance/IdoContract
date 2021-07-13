@@ -39,11 +39,23 @@ namespace IDOPlatform
         }
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            if (Runtime.EntryScriptHash != GetIdoContract()) throw new Exception("not allowed call");
+            if (!IfCallFromIdoContractSwap()) throw new Exception("not allowed call");
             if (GetAssetHash() == Runtime.CallingScriptHash)
             {
                 SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount / price);
             }
+        }
+        public static bool IfCallFromIdoContractSwap() 
+        {
+            Notification[] notifications = Runtime.GetNotifications(GetIdoContract());
+            foreach (var notification in notifications)
+            {
+                if (notification.EventName == "SwapAsset") 
+                {
+                    return true; 
+                }
+            }
+            return false;
         }
         public static bool SetAssetHash(UInt160 assetHash) 
         {
