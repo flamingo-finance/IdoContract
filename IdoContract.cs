@@ -340,7 +340,7 @@ namespace IDOPlatform
         }
         public static bool EndProject(UInt160 idoPairContractHash)
         {
-            if (IsOwner()) throw new Exception("WCF");//witness check fail
+            if (!IsOwner()) throw new Exception("WCF");//witness check fail
             RegistedProject project = GetRegistedProject(idoPairContractHash);
             project.isEnd = true;
             SetRegistedProject(project, idoPairContractHash);
@@ -376,7 +376,7 @@ namespace IDOPlatform
             SafeTransfer(GetSpendAssetHash(), user, Runtime.ExecutingScriptHash, spendAssetAmount);
             SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
-            if (balanceBefore - balanceAfter != amount) throw new Exception("AMC");// amount not correct
+            if (balanceAfter - balanceBefore != amount) throw new Exception("AMC");// amount not correct
             AddUserClaimAmount(idoPairContractHash, user, amount);
             AddUserSwapAmount(idoPairContractHash, user, amount);
             return true;
