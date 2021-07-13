@@ -67,10 +67,6 @@ namespace IDOPlatform
             {
                 SaveUserStaking(from, amount);
             }
-            else
-            {
-                throw new Exception("bad asset");
-            }
         }
         public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
         public static BigInteger GetWithdrawFee()
