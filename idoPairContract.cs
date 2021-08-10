@@ -21,21 +21,23 @@ namespace IDOPlatform
         private static readonly byte[] assetHashKey = { 0x02, 0x01 };
         private static readonly byte[] tokenHashKey = { 0x02, 0x02 };
         private static readonly byte[] idoContractHashKey = { 0x02, 0x03 };
-        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
-        private static readonly byte[] defaultAssetHash = default;
-        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
-        private static readonly byte[] defaultTokenHash = default;
-        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.ByteArray)]// little endian
-        private static readonly byte[] defaultIdoContractHash = default;
+        [InitialValue("0x83c442b5dc4ee0ed0e5249352fa7c75f65d6bfd6", ContractParameterType.Hash160)]// big endian
+        private static readonly byte[] defaultAssetHash = default; //fUSDT
+        [InitialValue("0xad97a439b4a035184d1ab46a07ee75687f541237", ContractParameterType.Hash160)]// big endian
+        private static readonly byte[] defaultTokenHash = default; //Token
+        [InitialValue("44baf1fac6dc465d6318e84911fd9bf536c5d6fd", ContractParameterType.Hash160)]// big endian
+        private static readonly byte[] defaultIdoContractHash = default; //IDO
+
+        [InitialValue("NVGUQ1qyL4SdSm7sVmGVkXetjEsvw2L3NT", ContractParameterType.Hash160)]
+        private static readonly UInt160 originOwner = default;
 
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
         public static UInt160 GetOwner() => (UInt160)Storage.Get(Storage.CurrentContext, superAdminKey);
 
         public const ulong price = 21;
         public static void _deploy(object data, bool update)
-        {
-            if (((UInt160)data).Length != 20) throw new Exception("BAA");//bad admin address
-            Storage.Put(Storage.CurrentContext, superAdminKey, (UInt160)data);
+        {            
+            Storage.Put(Storage.CurrentContext, superAdminKey, originOwner);
         }
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
@@ -77,7 +79,7 @@ namespace IDOPlatform
         public static UInt160 GetTokenHash() 
         {
             ByteString rawTokenHash = Storage.Get(Storage.CurrentContext, tokenHashKey);
-            return rawTokenHash is null ? (UInt160)rawTokenHash : (UInt160)defaultTokenHash;
+            return rawTokenHash is null ? (UInt160)defaultTokenHash : (UInt160)rawTokenHash;
         }
         public static bool SetIdoContract(UInt160 contractHash) 
         {
