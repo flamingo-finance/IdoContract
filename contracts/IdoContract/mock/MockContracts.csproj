@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Neo3.Compiler.CSharp.Dev" Version="3.0.0" />
+        <PackageReference Include="Neo.SmartContract.Framework" Version="3.0.0" />
+    </ItemGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <Exec Command="$(neon3) $(ProjectDir)/IdoPairExampleOneContract.cs --debug" />
+        <Exec Command="$(neon3) $(ProjectDir)/IdoPairExampleTwoContract.cs --debug" />
+        <Exec Command="$(neon3) $(ProjectDir)/TestToken.cs --debug" />
+    </Target>
+</Project>
