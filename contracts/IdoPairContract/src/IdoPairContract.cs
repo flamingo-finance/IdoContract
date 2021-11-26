@@ -5,6 +5,7 @@ using Neo;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
+using Neo.SmartContract.Framework.Attributes;
 
 namespace IdoPairContract
 {
@@ -20,6 +21,8 @@ namespace IdoPairContract
         private static readonly byte[] assetHashKey = { 0x02, 0x01 };
         private static readonly byte[] tokenHashKey = { 0x02, 0x02 };
         private static readonly byte[] idoContractHashKey = { 0x02, 0x03 };
+        private static readonly byte[] registerReceiveKey = { 0x02, 0x04 };
+        private static readonly byte[] swapReceiveKey = { 0x02, 0x05 };
 
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
         public static UInt160 GetOwner() => (UInt160) Storage.Get(Storage.CurrentContext, superAdminKey);
@@ -34,27 +37,45 @@ namespace IdoPairContract
 
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            if (!IfCallFromIdoContractSwap()) throw new Exception("Not allowed call!");
-
-            if (GetAssetHash() == Runtime.CallingScriptHash)
+            if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetAssetHash() == Runtime.CallingScriptHash)
             {
                 SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount / Price);
             }
+            else if ((BigInteger)Storage.Get(Storage.CurrentContext, registerReceiveKey) == 1 && GetTokenHash() == Runtime.CallingScriptHash)
+            {
+
+            }
+            else 
+            {
+                ExecutionEngine.Abort();
+            }
+            ResetReceiveOnSwap();
+            ResetReceiveOnProjectRegister();
+        }
+        public static void SetReceiveOnContractRegister()
+        {
+            if (Runtime.CallingScriptHash == GetIdoContract())
+            {
+                Storage.Put(Storage.CurrentContext, registerReceiveKey, 1);
+            }
         }
 
-        public static bool IfCallFromIdoContractSwap()
+        public static void SetReceiveOnSwap()
         {
-            Notification[] notifications = Runtime.GetNotifications(GetIdoContract());
-
-            foreach (var notification in notifications)
+            if (Runtime.CallingScriptHash == GetIdoContract())
             {
-                if (notification.EventName == "SwapAsset")
-                {
-                    return true;
-                }
+                Storage.Put(Storage.CurrentContext, registerReceiveKey, 1);
             }
+        }
 
-            return false;
+        private static void ResetReceiveOnProjectRegister()
+        {
+            Storage.Delete(Storage.CurrentContext, registerReceiveKey);
+        }
+
+        private static void ResetReceiveOnSwap()
+        {
+            Storage.Delete(Storage.CurrentContext, registerReceiveKey);
         }
 
         public static bool SetAssetHash(UInt160 assetHash)

@@ -6,6 +6,7 @@ using Neo.SmartContract;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
+using Neo.SmartContract.Framework.Attributes;
 
 namespace IdoContract
 {
@@ -56,6 +57,7 @@ namespace IdoContract
 
         #region event
 
+        public static event Action<object> Error;
         public static event Action<byte[], UInt160> OnDeploy;
         public static event Action<UInt160, BigInteger> SwapAsset;
 
@@ -307,7 +309,7 @@ namespace IdoContract
         {
             UInt160 sender = ((Transaction) Runtime.ScriptContainer).Sender;
             if (tokenOfferingAmount <= 0 || tokenOfferingPrice <= 0) throw new Exception("BIA"); //bad initial args
-            SwapAsset(sender, tokenOfferingAmount);
+            CallRegister(idoPairContract);
             SafeTransfer(tokenHash, sender, idoPairContract, tokenOfferingAmount);
             if (ContractManagement.GetContract(tokenHash) is null || ContractManagement.GetContract(idoPairContract) is null) throw new Exception("BCH"); //bad contract Hash       
             if (!(GetRegisteredProject(idoPairContract).isNewProject)) throw new Exception("PHBR"); //project has been registered
@@ -420,6 +422,7 @@ namespace IdoContract
             BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
             BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / PriceDenominator;
             SwapAsset(user, amount);
+            CallSwap(idoPairContractHash);
             SafeTransfer(GetSpendAssetHash(), user, Runtime.ExecutingScriptHash, spendAssetAmount);
             SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
@@ -473,6 +476,7 @@ namespace IdoContract
             BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
             BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / PriceDenominator;
             SwapAsset(user, amount);
+            CallSwap(idoPairContractHash);
             SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
             if (balanceBefore - balanceAfter != amount) throw new Exception("AMC"); // amount not correct
@@ -660,6 +664,18 @@ namespace IdoContract
             return (BigInteger) result;
         }
 
+        #endregion
+
+        #region stateControl
+        private static void CallRegister(UInt160 idoPairContract)
+        {
+            Contract.Call(idoPairContract, "ResetReceiveOnProjectRegister", CallFlags.WriteStates, new object[] { });
+        }
+
+        private static void CallSwap(UInt160 idoPairContract)
+        {
+            Contract.Call(idoPairContract, "SetReceiveOnSwap", CallFlags.WriteStates, new object[] { });
+        }
         #endregion
 
         #region struct
