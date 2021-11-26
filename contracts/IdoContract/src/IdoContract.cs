@@ -155,16 +155,16 @@ namespace IdoContract
             if (stakeInfo.isNewUser) throw new Exception("bad address");
             if (stakeInfo.lastStakeAmount < unstakeAmount) throw new Exception("bad amount");
             byte stakeLevel = GetUserStakingLevel(userAddress);
+            SaveUserStaking(userAddress, -unstakeAmount);
             if (GetEnoughTimeForUnstake(stakeInfo.lastStakeHeight, Ledger.CurrentIndex, stakeLevel >= 4))
             {
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);
-                SaveUserStaking(userAddress, -unstakeAmount);
+                
             }
             else
             {
                 BigInteger amountWithFee = unstakeAmount * GetWithdrawFee() / WithdrawFeeDenominator;
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, amountWithFee);
-                SaveUserStaking(userAddress, -unstakeAmount);
             }
 
             BigInteger amountAfter = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
@@ -459,9 +459,10 @@ namespace IdoContract
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE"); // project reviewed not end yet
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
-            if (oldAmount <= 0) throw new Exception("NCT"); // no unclaimed token            
-            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
+            if (oldAmount <= 0) throw new Exception("NCT"); // no unclaimed token
             AddUserClaimAmount(idoPairContractHash, user, -oldAmount);
+            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
+            ExecutionEngine.Assert(GetUserClaimAmountImple(key) == 0);
             return true;
         }
 
@@ -473,12 +474,12 @@ namespace IdoContract
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE"); // project reviewed not end yet
             if (amount <= 0) throw new Exception("BSA"); //bad swap amount;
             //transfer asset part
-            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
             BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / PriceDenominator;
             SwapAsset(user, amount);
             CallSwap(idoPairContractHash);
             SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
-            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
             if (balanceBefore - balanceAfter != amount) throw new Exception("AMC"); // amount not correct
             return true;
         }
