@@ -331,6 +331,7 @@ namespace IdoContract
         {
             if (!IsOwner()) throw new Exception("WCF"); //witness check fail
             RegisteredProject project = GetRegisteredProject(idoPairContract);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             project.reviewedHeight = Ledger.CurrentIndex;
             project.isReviewed = true;
             SetRegisteredProject(project, idoPairContract);
@@ -389,6 +390,7 @@ namespace IdoContract
         {
             if (!IsOwner()) throw new Exception("WCF"); //witness check fail
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             project.isEnd = true;
             SetRegisteredProject(project, idoPairContractHash);
             return true;
@@ -414,6 +416,7 @@ namespace IdoContract
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF"); // witness check fail
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             if (project.isEnd == true) throw new Exception("BPS"); // bad project status
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < GetVoteTimeSpan()) throw new Exception("RNE"); // project reviewed not end yet
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
@@ -456,6 +459,7 @@ namespace IdoContract
         public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash)
         {
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE"); // project reviewed not end yet
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
@@ -469,6 +473,7 @@ namespace IdoContract
         {
             if (!Runtime.CheckWitness(user)) throw new Exception("WCF"); // witness check fail
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             if (project.isEnd == true) throw new Exception("BPS"); // bad project status
             if (!project.isReviewed || Ledger.CurrentIndex - project.reviewedHeight < 2 * GetVoteTimeSpan()) throw new Exception("RNE"); // project reviewed not end yet
             if (amount <= 0) throw new Exception("BSA"); //bad swap amount;
