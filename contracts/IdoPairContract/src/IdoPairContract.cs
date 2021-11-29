@@ -39,18 +39,19 @@ namespace IdoPairContract
         {
             if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetAssetHash() == Runtime.CallingScriptHash)
             {
+                ResetReceiveOnSwap();
+                ResetReceiveOnProjectRegister();
                 SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount / Price);
             }
             else if ((BigInteger)Storage.Get(Storage.CurrentContext, registerReceiveKey) == 1 && GetTokenHash() == Runtime.CallingScriptHash)
             {
-
+                ResetReceiveOnSwap();
+                ResetReceiveOnProjectRegister();
             }
             else 
             {
                 ExecutionEngine.Abort();
             }
-            ResetReceiveOnSwap();
-            ResetReceiveOnProjectRegister();
         }
         public static void SetReceiveOnContractRegister()
         {
