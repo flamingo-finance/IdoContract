@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <NeoContractManifestPath>..\src\bin\sc\IdoContract.manifest.json</NeoContractManifestPath>
     <NeoPair1ContractManifestPath>..\mock\bin\sc\IdoPairExampleOneContract.manifest.json</NeoPair1ContractManifestPath>
     <NeoPair2ContractManifestPath>..\mock\bin\sc\IdoPairExampleTwoContract.manifest.json</NeoPair2ContractManifestPath>
