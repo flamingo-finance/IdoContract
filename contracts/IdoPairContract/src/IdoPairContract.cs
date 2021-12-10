@@ -39,18 +39,19 @@ namespace IdoPairContract
         {
             if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetAssetHash() == Runtime.CallingScriptHash)
             {
+                ResetReceiveOnSwap();
+                ResetReceiveOnProjectRegister();
                 SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount / Price);
             }
             else if ((BigInteger)Storage.Get(Storage.CurrentContext, registerReceiveKey) == 1 && GetTokenHash() == Runtime.CallingScriptHash)
             {
-
+                ResetReceiveOnSwap();
+                ResetReceiveOnProjectRegister();
             }
             else 
             {
                 ExecutionEngine.Abort();
             }
-            ResetReceiveOnSwap();
-            ResetReceiveOnProjectRegister();
         }
         public static void SetReceiveOnContractRegister()
         {
@@ -80,7 +81,7 @@ namespace IdoPairContract
 
         public static bool SetAssetHash(UInt160 assetHash)
         {
-            if (!IsOwner()) throw new Exception("Unauthorized!");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, assetHashKey, assetHash);
             return true;
         }
@@ -88,15 +89,13 @@ namespace IdoPairContract
         public static UInt160 GetAssetHash()
         {
             ByteString rawAssetHash = Storage.Get(Storage.CurrentContext, assetHashKey);
-
-            if (rawAssetHash is null) throw new Exception("Asset hash not set.");
-
+            ExecutionEngine.Assert(rawAssetHash is not null, "Asset hash not set.");
             return (UInt160) rawAssetHash;
         }
 
         public static bool SetTokenHash(UInt160 tokenHash)
         {
-            if (!IsOwner()) throw new Exception("Unauthorized!");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, tokenHashKey, tokenHash);
             return true;
         }
@@ -104,15 +103,13 @@ namespace IdoPairContract
         public static UInt160 GetTokenHash()
         {
             ByteString rawTokenHash = Storage.Get(Storage.CurrentContext, tokenHashKey);
-
-            if (rawTokenHash is null) throw new Exception("Token hash not set.");
-
+            ExecutionEngine.Assert(rawTokenHash is not null, "Token hash not set.");
             return (UInt160) rawTokenHash;
         }
 
         public static bool SetIdoContract(UInt160 contractHash)
         {
-            if (!IsOwner()) throw new Exception("Unauthorized!");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, idoContractHashKey, contractHash);
             return true;
         }
@@ -120,38 +117,34 @@ namespace IdoPairContract
         public static UInt160 GetIdoContract()
         {
             ByteString rawIdoContract = Storage.Get(Storage.CurrentContext, idoContractHashKey);
-
-            if (rawIdoContract is null) throw new Exception("IDO contract hash not set.");
-
+            ExecutionEngine.Assert(rawIdoContract is not null, "IDO contract hash not set.");
             return (UInt160) rawIdoContract;
         }
 
         public static bool WithdrawAsset(BigInteger amount)
         {
-            if (!IsOwner()) throw new Exception("Witness check fail!");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             SafeTransfer(GetAssetHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
 
         public static bool WithdrawToken(BigInteger amount)
         {
-            if (!IsOwner()) throw new Exception("Witness check fail!");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
 
         public static void Update(ByteString nefFile, string manifest, object data = null)
         {
-            if (!IsOwner()) throw new Exception("Unauthorized!");
-
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             ContractManagement.Update(nefFile, manifest, data);
         }
 
         public static bool TransferOwnership(UInt160 newOwner)
         {
-            if (!newOwner.IsValid) throw new Exception("The new owner address is invalid.");
-            if (!IsOwner()) throw new Exception("Unauthorized!");
-
+            ExecutionEngine.Assert(newOwner.IsValid, "The new owner address is invalid.");
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
             return true;
         }
@@ -159,7 +152,7 @@ namespace IdoPairContract
         private static void SafeTransfer(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
             var result = (bool) Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });
-            if (!result) throw new Exception("Transfer failed!");
+            ExecutionEngine.Assert(result, "transfer fail");
         }
     }
 }
