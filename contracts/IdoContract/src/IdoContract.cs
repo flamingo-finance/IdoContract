@@ -665,7 +665,7 @@ namespace IdoContract
 
         private static BigInteger GetBalanceOfToken(UInt160 assetHash, UInt160 address)
         {
-            var result = Contract.Call(assetHash, "balanceOf", CallFlags.All, new object[] { address });
+            var result = Contract.Call(assetHash, "balanceOf", CallFlags.ReadOnly, new object[] { address });
             return (BigInteger) result;
         }
 
