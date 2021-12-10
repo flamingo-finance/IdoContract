@@ -329,6 +329,7 @@ namespace IdoContract
         {
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             RegisteredProject project = GetRegisteredProject(idoPairContract);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             project.reviewedHeight = Ledger.CurrentIndex;
             project.isReviewed = true;
             SetRegisteredProject(project, idoPairContract);
@@ -387,6 +388,7 @@ namespace IdoContract
         {
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             project.isEnd = true;
             SetRegisteredProject(project, idoPairContractHash);
             return true;
@@ -412,6 +414,7 @@ namespace IdoContract
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(user), " witness check fail");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isEnd is false, "bad project status");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight > GetVoteTimeSpan(), "project review not end");
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
@@ -454,6 +457,7 @@ namespace IdoContract
         public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash)
         {
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
@@ -469,6 +473,7 @@ namespace IdoContract
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isEnd is false, "bad project status");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
             ExecutionEngine.Assert(amount > 0, "bad swap amount");
