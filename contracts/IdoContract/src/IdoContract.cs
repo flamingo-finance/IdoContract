@@ -91,6 +91,7 @@ namespace IdoContract
 
         public static bool SetWithdrawFee(BigInteger amount)
         {
+            ExecutionEngine.Assert(amount >= 0, "bad amount");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, withdrawFeeKey, amount);
             return true;
@@ -104,7 +105,7 @@ namespace IdoContract
 
         public static bool TransferOwnership(UInt160 newOwner)
         {
-            ExecutionEngine.Assert(newOwner.IsValid, "The new owner address is invalid.");
+            ExecutionEngine.Assert(newOwner.IsValid && newOwner.IsZero, "The new owner address is invalid.");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
             return true;
@@ -122,6 +123,7 @@ namespace IdoContract
 
         public static bool SetStakeAssetHash(UInt160 assetHash)
         {
+            ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "bad assetHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, stakeAssetHashKey, assetHash);
             return true;
@@ -135,6 +137,7 @@ namespace IdoContract
 
         public static bool SetSpendAssetHash(UInt160 assetHash)
         {
+            ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "bad assetHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, spendAssetHashKey, assetHash);
             return true;
@@ -146,6 +149,7 @@ namespace IdoContract
 
         public static bool Unstake(UInt160 userAddress, BigInteger unstakeAmount)
         {
+            ExecutionEngine.Assert(userAddress.IsValid && !userAddress.IsZero, "bad userAddress");
             UInt160 assetHash = GetStakeAssetHash();
             BigInteger amountBefore = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
             ExecutionEngine.Assert(Runtime.CheckWitness(userAddress), "check user witness fail");
@@ -216,6 +220,7 @@ namespace IdoContract
             return true;
         }
 
+        [Safe]
         public static UserStakeInfo GetUserStakeInfo(UInt160 userAddress)
         {
             ByteString rawUserStakeInfo = Storage.Get(Storage.CurrentContext, GetUserStakeKey(userAddress));
@@ -240,6 +245,7 @@ namespace IdoContract
             Storage.Put(Storage.CurrentContext, GetUserStakeKey(userAddress), StdLib.Serialize(stakeInfo));
         }
 
+        [Safe]
         public static byte GetUserStakingLevel(UInt160 userAddress)
         {
             UserStakeInfo userInfo = GetUserStakeInfo(userAddress);
@@ -259,7 +265,8 @@ namespace IdoContract
                 }
             }
         }
-
+        
+        [Safe]
         public static BigInteger GetSwapAmoutMax(UInt160 user, UInt160 idoPairContractHash)
         {
             BigInteger userWeight = GetRegisteredProjectUserWeight(idoPairContractHash, user);
@@ -273,6 +280,7 @@ namespace IdoContract
             return userWeight * offeringAmount / totalWeight;
         }
 
+        [Safe]
         public static BigInteger GetUserCanSwapAmount(UInt160 idoPairContract, UInt160 user)
         {
             ByteString rawAmount = Storage.Get(Storage.CurrentContext, userSwapPrefix.Concat(idoPairContract).Concat(user));
@@ -305,6 +313,8 @@ namespace IdoContract
 
         public static bool RegisterProject(BigInteger tokenOfferingAmount, BigInteger tokenOfferingPrice, UInt160 idoPairContract, byte allowedLevel, UInt160 tokenHash)
         {
+            ExecutionEngine.Assert(tokenHash.IsValid && !tokenHash.IsZero, "bad tokenHash");
+            ExecutionEngine.Assert(allowedLevel >= 1 && allowedLevel <= 6, "bad allowedLevel");
             UInt160 sender = ((Transaction) Runtime.ScriptContainer).Sender;
             ExecutionEngine.Assert(tokenOfferingAmount > 0 && tokenOfferingPrice > 0, "bad initial args");
             CallRegister(idoPairContract);
@@ -340,6 +350,7 @@ namespace IdoContract
 
         public static RegisteredProject GetRegisteredProject(UInt160 idoPairContract)
         {
+            ExecutionEngine.Assert(idoPairContract.IsValid && !idoPairContract.IsZero, "bad idoPairContract");
             ByteString rawRegisteredProject = Storage.Get(Storage.CurrentContext, registeredProjectPrefix.Concat(idoPairContract));
             if (rawRegisteredProject is null)
             {
@@ -369,7 +380,8 @@ namespace IdoContract
         }
 
         public static bool VoteForProject(UInt160 user, UInt160 idoPairContractHash)
-        {            
+        {
+            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
             ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false && project.isReviewed is true && project.isEnd is false, "bad project status");
@@ -435,6 +447,7 @@ namespace IdoContract
 
         private static void AddUserClaimAmount(UInt160 idoPairContractHash, UInt160 user, BigInteger amount)
         {
+            ExecutionEngine.Assert(idoPairContractHash.IsValid && !idoPairContractHash.IsZero, "bad idoPairContractHash");
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
             amount = amount + oldAmount;
@@ -456,6 +469,7 @@ namespace IdoContract
 
         public static bool ClaimToken(UInt160 user, UInt160 idoPairContractHash)
         {
+            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
@@ -471,6 +485,8 @@ namespace IdoContract
 
         public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
         {
+            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
+            ExecutionEngine.Assert(idoPairContractHash.IsValid && !idoPairContractHash.IsZero, "bad idoPairContractHash");
             ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
@@ -597,6 +613,7 @@ namespace IdoContract
 
         public static bool SetStakeLevelAmount(BigInteger bronze, BigInteger silver, BigInteger gold, BigInteger platinum, BigInteger diamond, BigInteger kryptonite)
         {
+            ExecutionEngine.Assert(bronze >= 0 && silver >= bronze && gold >= silver && platinum >= gold && diamond >= platinum && kryptonite >= diamond, "bad amount");
             ExecutionEngine.Assert(IsOwner(), "witness check fail");
             ByteString rawStakeLevelAmount = StdLib.Serialize(new StakeLevelAmount
             {
