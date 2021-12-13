@@ -105,7 +105,7 @@ namespace IdoContract
 
         public static bool TransferOwnership(UInt160 newOwner)
         {
-            ExecutionEngine.Assert(newOwner.IsValid && newOwner.IsZero, "The new owner address is invalid.");
+            ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "The new owner address is invalid.");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
             return true;
