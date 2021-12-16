@@ -151,20 +151,18 @@ namespace IdoContract
             ExecutionEngine.Assert(Runtime.CheckWitness(userAddress), "check user witness fail");
             UserStakeInfo stakeInfo = GetUserStakeInfo(userAddress);
             ExecutionEngine.Assert(!stakeInfo.isNewUser, "bad userAddress");
-            ExecutionEngine.Assert(stakeInfo.lastStakeAmount > unstakeAmount, "bad amount");
+            ExecutionEngine.Assert(stakeInfo.lastStakeAmount >= unstakeAmount, "bad amount");
             byte stakeLevel = GetUserStakingLevel(userAddress);
             SaveUserStaking(userAddress, -unstakeAmount);
             if (GetEnoughTimeForUnstake(stakeInfo.lastStakeHeight, Ledger.CurrentIndex, stakeLevel >= 4))
             {
-                SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);
-                
+                SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);               
             }
             else
             {
                 BigInteger amountWithFee = unstakeAmount * GetWithdrawFee() / WithdrawFeeDenominator;
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, amountWithFee);
             }
-
             BigInteger amountAfter = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
             ExecutionEngine.Assert(amountBefore - unstakeAmount <= amountAfter, "amount not correct");
             return true;
@@ -461,8 +459,7 @@ namespace IdoContract
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
-            ExecutionEngine.Assert(oldAmount > 0, "no unclaimed token");
-            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
+            ExecutionEngine.Assert(oldAmount > 0, "no unclaimed token");            
             AddUserClaimAmount(idoPairContractHash, user, -oldAmount);
             SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
             ExecutionEngine.Assert(GetUserClaimAmountImple(key) == 0);
@@ -483,7 +480,7 @@ namespace IdoContract
             SwapAsset(user, amount);
             CallSwap(idoPairContractHash);
             SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
-            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, user);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
             ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
             return true;
         }
