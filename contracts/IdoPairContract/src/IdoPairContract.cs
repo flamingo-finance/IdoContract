@@ -76,7 +76,7 @@ namespace IdoPairContract
 
         private static void ResetReceiveOnSwap()
         {
-            Storage.Delete(Storage.CurrentContext, registerReceiveKey);
+            Storage.Delete(Storage.CurrentContext, swapReceiveKey);
         }
 
         public static bool SetAssetHash(UInt160 assetHash)
