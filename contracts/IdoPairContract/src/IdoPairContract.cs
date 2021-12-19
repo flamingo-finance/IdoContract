@@ -81,6 +81,7 @@ namespace IdoPairContract
 
         public static bool SetAssetHash(UInt160 assetHash)
         {
+            ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "bad assetHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, assetHashKey, assetHash);
             return true;
@@ -95,6 +96,7 @@ namespace IdoPairContract
 
         public static bool SetTokenHash(UInt160 tokenHash)
         {
+            ExecutionEngine.Assert(tokenHash.IsValid && !tokenHash.IsZero, "bad tokenHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, tokenHashKey, tokenHash);
             return true;
@@ -109,13 +111,14 @@ namespace IdoPairContract
 
         public static bool SetIdoContract(UInt160 contractHash)
         {
+            ExecutionEngine.Assert(contractHash.IsValid && !contractHash.IsZero, "bad contractHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, idoContractHashKey, contractHash);
             return true;
         }
 
         public static UInt160 GetIdoContract()
-        {
+        {            
             ByteString rawIdoContract = Storage.Get(Storage.CurrentContext, idoContractHashKey);
             ExecutionEngine.Assert(rawIdoContract is not null, "IDO contract hash not set.");
             return (UInt160) rawIdoContract;
@@ -143,7 +146,7 @@ namespace IdoPairContract
 
         public static bool TransferOwnership(UInt160 newOwner)
         {
-            ExecutionEngine.Assert(newOwner.IsValid, "The new owner address is invalid.");
+            ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "The new owner address is invalid.");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
             return true;
