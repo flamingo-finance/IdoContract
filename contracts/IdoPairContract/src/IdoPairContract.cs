@@ -35,6 +35,12 @@ namespace IdoPairContract
             Storage.Put(Storage.CurrentContext, superAdminKey, tx.Sender);
         }
 
+        public static void Update(ByteString nefFile, string manifest)
+        {
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ContractManagement.Update(nefFile, manifest);
+        }
+
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
             if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetAssetHash() == Runtime.CallingScriptHash)
