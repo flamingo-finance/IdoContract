@@ -378,7 +378,7 @@ namespace IdoContract
             SafeTransfer(GetSpendAssetHash(), user, Runtime.ExecutingScriptHash, spendAssetAmount);
             SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
-            ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
+            //ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
             AddUserClaimAmount(idoPairContractHash, user, amount);
             AddUserSwapAmount(idoPairContractHash, user, amount);
             return true;
