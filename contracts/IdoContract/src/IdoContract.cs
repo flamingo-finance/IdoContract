@@ -597,12 +597,12 @@ namespace IdoContract
         #region stateControl
         private static void CallRegister(UInt160 idoPairContract)
         {
-            Contract.Call(idoPairContract, "ResetReceiveOnProjectRegister", CallFlags.WriteStates, new object[] { });
+            Contract.Call(idoPairContract, "setReceiveOnProjectRegister", CallFlags.All, new object[] { });
         }
 
         private static void CallSwap(UInt160 idoPairContract)
         {
-            Contract.Call(idoPairContract, "SetReceiveOnSwap", CallFlags.WriteStates, new object[] { });
+            Contract.Call(idoPairContract, "setReceiveOnSwap", CallFlags.All, new object[] { });
         }
         #endregion
 

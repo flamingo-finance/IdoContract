@@ -59,7 +59,7 @@ namespace IdoPairContract
                 ExecutionEngine.Abort();
             }
         }
-        public static void SetReceiveOnContractRegister()
+        public static void SetReceiveOnProjectRegister()
         {
             if (Runtime.CallingScriptHash == GetIdoContract())
             {
@@ -142,12 +142,6 @@ namespace IdoPairContract
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
-        }
-
-        public static void Update(ByteString nefFile, string manifest, object data = null)
-        {
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
-            ContractManagement.Update(nefFile, manifest, data);
         }
 
         public static bool TransferOwnership(UInt160 newOwner)
