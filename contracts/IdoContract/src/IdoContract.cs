@@ -395,7 +395,7 @@ namespace IdoContract
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isEnd is false, "bad project status");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= GetVoteTimeSpan(), "project review not end");
-            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() > GetSwapTimeSpan(), "round 2 not start");
+            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() >= GetSwapTimeSpan(), "round 2 not start");
             ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() < 2 * GetSwapTimeSpan(), "round 2 is end");            
             ExecutionEngine.Assert(amount > 0, "bad swap amount");
             //transfer asset part
@@ -436,7 +436,7 @@ namespace IdoContract
             ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
-            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() >= 2 * GetSwapTimeSpan(), "project review not end");
+            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() >= GetSwapTimeSpan(), "claim not start");
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
             ExecutionEngine.Assert(oldAmount > 0, "no unclaimed token");
