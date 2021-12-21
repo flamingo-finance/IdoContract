@@ -436,7 +436,7 @@ namespace IdoContract
             ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
-            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
+            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() >= 2 * GetSwapTimeSpan(), "project review not end");
             byte[] key = GetUserClaimAmountKey(idoPairContractHash, user);
             BigInteger oldAmount = GetUserClaimAmountImple(key);
             ExecutionEngine.Assert(oldAmount > 0, "no unclaimed token");
