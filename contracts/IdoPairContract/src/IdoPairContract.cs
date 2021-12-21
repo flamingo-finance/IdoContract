@@ -29,7 +29,7 @@ namespace IdoPairContract
 
         private const ulong PriceMultiplier = 1000_000_000_000_000_000;  //18
 
-        public const ulong Price = 210_000_000_000_000_000; //0.21
+        public const ulong Price = 210_000_000_000_000_0; //0.21
 
         public static void _deploy(object data, bool update)
         {

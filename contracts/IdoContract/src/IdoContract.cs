@@ -39,9 +39,11 @@ namespace IdoContract
         public const uint DefaultUnstakeTimeSpan = 6172;
         private static readonly byte[] voteTimeSpanKey = new byte[] { 0x02, 0x03 };
         private const uint DefaultVoteTimeSpan = 21602;
+        private static readonly byte[] swapTimeSpanKey = new byte[] { 0x02, 0x04 };
+        private const uint DefaultSwapTimeSpan = 21602;
         private static readonly byte[] levelAmountKey = { 0x03, 0x01 };
 
-        private const ulong PriceDenominator = 1000_000_000_000_000_000;
+        private const ulong PriceDenominator = 1000000000000000000; //10^18
         private const int WithdrawFeeDenominator = 10000;
         private const int DefaultWithdrawFee = 8000;
         private static readonly byte[] withdrawFeeKey = { 0x04, 0x01 };
@@ -326,7 +328,7 @@ namespace IdoContract
             ExecutionEngine.Assert(project.isNewProject is false && project.isReviewed is true && project.isEnd is false, "bad project status");
             UserStakeInfo userInfo = GetUserStakeInfo(user);
             ExecutionEngine.Assert(userInfo.stakeLevel >= project.allowedLevel, "bad user level");
-            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight < 21602, "project time out");
+            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight < GetVoteTimeSpan(), "project time out");
             BigInteger userWeight = GetRegisteredProjectUserWeight(idoPairContractHash, user);
             ExecutionEngine.Assert(userWeight == 0, "user has voted for project");
             uint weight = GetStakeWeightByLevel(userInfo.stakeLevel);
@@ -368,6 +370,7 @@ namespace IdoContract
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
             ExecutionEngine.Assert(project.isEnd is false, "bad project status");
             ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight > GetVoteTimeSpan(), "project review not end");
+            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() < GetSwapTimeSpan(), "round 1 is end");
             BigInteger canSwapAmount = GetUserCanSwapAmount(idoPairContractHash, user);
             ExecutionEngine.Assert(canSwapAmount >= amount && amount > 0, "bad swap amount");
             //transfer asset part
@@ -381,6 +384,28 @@ namespace IdoContract
             //ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
             AddUserClaimAmount(idoPairContractHash, user, amount);
             AddUserSwapAmount(idoPairContractHash, user, amount);
+            return true;
+        }
+
+        public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
+        {
+            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
+            ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
+            RegisteredProject project = GetRegisteredProject(idoPairContractHash);
+            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
+            ExecutionEngine.Assert(project.isEnd is false, "bad project status");
+            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= GetVoteTimeSpan(), "project review not end");
+            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() > GetSwapTimeSpan(), "round 2 not start");
+            ExecutionEngine.Assert(Ledger.CurrentIndex - project.reviewedHeight - GetVoteTimeSpan() < 2 * GetSwapTimeSpan(), "round 2 is end");            
+            ExecutionEngine.Assert(amount > 0, "bad swap amount");
+            //transfer asset part
+            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
+            BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / PriceDenominator;
+            SwapAsset(user, amount);
+            CallSwap(idoPairContractHash);
+            SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
+            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
+            //ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
             return true;
         }
 
@@ -418,27 +443,6 @@ namespace IdoContract
             AddUserClaimAmount(idoPairContractHash, user, -oldAmount);
             SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, oldAmount);
             ExecutionEngine.Assert(GetUserClaimAmountImple(key) == 0);
-            return true;
-        }
-
-        public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
-        {
-            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
-            ExecutionEngine.Assert(idoPairContractHash.IsValid && !idoPairContractHash.IsZero, "bad idoPairContractHash");
-            ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
-            RegisteredProject project = GetRegisteredProject(idoPairContractHash);
-            ExecutionEngine.Assert(project.isNewProject is false, "empty project");
-            ExecutionEngine.Assert(project.isEnd is false, "bad project status");
-            ExecutionEngine.Assert(project.isReviewed && Ledger.CurrentIndex - project.reviewedHeight >= 2 * GetVoteTimeSpan(), "project review not end");
-            ExecutionEngine.Assert(amount > 0, "bad swap amount");
-            //transfer asset part
-            BigInteger balanceBefore = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
-            BigInteger spendAssetAmount = project.tokenOfferingPrice * amount / PriceDenominator;
-            SwapAsset(user, amount);
-            CallSwap(idoPairContractHash);
-            SafeTransfer(GetSpendAssetHash(), user, idoPairContractHash, spendAssetAmount);
-            BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, idoPairContractHash);
-            ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
             return true;
         }
 
@@ -488,6 +492,12 @@ namespace IdoContract
         {
             ByteString rawUnstakeTimeSpan = Storage.Get(Storage.CurrentContext, unstakeTimeSpanKey);
             return rawUnstakeTimeSpan is null ? DefaultUnstakeTimeSpan : (BigInteger)rawUnstakeTimeSpan;
+        }
+
+        public static BigInteger GetSwapTimeSpan()
+        {
+            ByteString rawSwapTimeSpan = Storage.Get(Storage.CurrentContext, swapTimeSpanKey);
+            return rawSwapTimeSpan is null ? DefaultSwapTimeSpan : (BigInteger)rawSwapTimeSpan;
         }
 
         public static StakeLevelAmount GetStakeLevelAmount()
@@ -568,6 +578,20 @@ namespace IdoContract
             if (timeSpan > 0)
             {
                 Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
+                return true;
+            }
+            else
+            {
+                throw new Exception("BA"); // bad args
+            }
+        }
+
+        public static bool SetSwapTimeSpan(BigInteger timeSpan)
+        {
+            ExecutionEngine.Assert(IsOwner(), "witness check fail");
+            if (timeSpan > 0)
+            {
+                Storage.Put(Storage.CurrentContext, swapTimeSpanKey, timeSpan);
                 return true;
             }
             else
