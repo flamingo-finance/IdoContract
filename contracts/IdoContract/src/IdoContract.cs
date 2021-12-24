@@ -242,6 +242,7 @@ namespace IdoContract
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             RegisteredProject project = GetRegisteredProject(idoPairContract);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
+            ExecutionEngine.Assert(project.isReviewed is false, "project is reviewed");
             project.reviewedHeight = Ledger.CurrentIndex;
             project.isReviewed = true;
             SetRegisteredProject(project, idoPairContract);
@@ -332,6 +333,7 @@ namespace IdoContract
             uint weight = GetStakeWeightByLevel(userInfo.stakeLevel);
             ExecutionEngine.Assert(weight >= 0, "bad weight amount");
             project.totalWeight = project.totalWeight + weight;
+            projectUserInfo.weight = weight;
             SetRegisteredProject(project, idoPairContractHash);
             SetProjectUserInfo(idoPairContractHash, user, projectUserInfo);
             return true;
@@ -368,9 +370,11 @@ namespace IdoContract
             SafeTransfer(GetSpendAssetHash(), user, Runtime.ExecutingScriptHash, spendAssetAmount);
             SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, idoPairContractHash, spendAssetAmount);
             BigInteger balanceAfter = GetBalanceOfToken(project.tokenHash, Runtime.ExecutingScriptHash);
-            //ExecutionEngine.Assert(balanceAfter - balanceBefore == amount, "amount not correct");
 
-            projectUserInfo.claimAmount = projectUserInfo.claimAmount + amount;
+            BigInteger recAmount = balanceAfter - balanceBefore;
+            ExecutionEngine.Assert(recAmount > 0, "amount not correct");
+
+            projectUserInfo.claimAmount = projectUserInfo.claimAmount + recAmount;
             ExecutionEngine.Assert(projectUserInfo.claimAmount >= 0, "bad claim amount");
 
             projectUserInfo.swappedAmount = projectUserInfo.swappedAmount + amount;
@@ -607,16 +611,6 @@ namespace IdoContract
             public BigInteger claimAmount;
         }
 
-        public struct StakeLevelAmount
-        {
-            public BigInteger bronzeAmount; //index: 1
-            public BigInteger silverAmount; //index: 2
-            public BigInteger goldAmount; //index: 3
-            public BigInteger platinumAmount; //index: 4
-            public BigInteger diamondAmount; //index: 5
-            public BigInteger kryptoniteAmount; //index: 6
-        }
-
         public struct RegisteredProject
         {
             public uint reviewedHeight;
@@ -628,6 +622,16 @@ namespace IdoContract
             public bool isReviewed;
             public bool isEnd;
             public byte allowedLevel;
+        }
+
+        public struct StakeLevelAmount
+        {
+            public BigInteger bronzeAmount; //index: 1
+            public BigInteger silverAmount; //index: 2
+            public BigInteger goldAmount; //index: 3
+            public BigInteger platinumAmount; //index: 4
+            public BigInteger diamondAmount; //index: 5
+            public BigInteger kryptoniteAmount; //index: 6
         }
 
         #endregion
