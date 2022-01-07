@@ -27,9 +27,9 @@ namespace IdoPairContract
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
         public static UInt160 GetOwner() => (UInt160) Storage.Get(Storage.CurrentContext, superAdminKey);
 
-        private const ulong PriceMultiplier = 1000_000_000_000_000_000;  //18
+        private const ulong PriceMultiplier = 1000000000000000000;  //18
 
-        public const ulong Price = 210_000_000_000_000_0; //0.21
+        public const ulong Price = 1300000000000000; //0.13usdt #### fUSDT decimals is 6, token decimals is 8
 
         public static void _deploy(object data, bool update)
         {
@@ -39,7 +39,7 @@ namespace IdoPairContract
 
         public static void Update(ByteString nefFile, string manifest)
         {
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             ContractManagement.Update(nefFile, manifest);
         }
 
@@ -90,7 +90,7 @@ namespace IdoPairContract
         public static bool SetSpendAssetHash(UInt160 assetHash)
         {
             ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "bad assetHash");
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             Storage.Put(Storage.CurrentContext, assetHashKey, assetHash);
             return true;
         }
@@ -105,7 +105,7 @@ namespace IdoPairContract
         public static bool SetTokenHash(UInt160 tokenHash)
         {
             ExecutionEngine.Assert(tokenHash.IsValid && !tokenHash.IsZero, "bad tokenHash");
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             Storage.Put(Storage.CurrentContext, tokenHashKey, tokenHash);
             return true;
         }
@@ -120,7 +120,7 @@ namespace IdoPairContract
         public static bool SetIdoContract(UInt160 contractHash)
         {
             ExecutionEngine.Assert(contractHash.IsValid && !contractHash.IsZero, "bad contractHash");
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             Storage.Put(Storage.CurrentContext, idoContractHashKey, contractHash);
             return true;
         }
@@ -134,22 +134,22 @@ namespace IdoPairContract
 
         public static bool WithdrawAsset(BigInteger amount)
         {
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
 
         public static bool WithdrawToken(BigInteger amount)
         {
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
 
         public static bool TransferOwnership(UInt160 newOwner)
         {
-            ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "The new owner address is invalid.");
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "new owner address is invalid.");
+            ExecutionEngine.Assert(IsOwner(), "not owner");
             Storage.Put(Storage.CurrentContext, superAdminKey, newOwner);
             return true;
         }
