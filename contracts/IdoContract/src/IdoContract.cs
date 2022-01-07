@@ -76,12 +76,11 @@ namespace IdoContract
             {
                 UserStakeInfo userInfo = GetUserStakeInfo(from);
 
-                SetUserStakeInfo(from, new UserStakeInfo
-                {
-                    lastStakeHeight = Ledger.CurrentIndex,
-                    stakeAmount = userInfo.stakeAmount + amount,
-                    stakeLevel = GetStakeLevelByAmount(userInfo.stakeAmount + amount)
-                });
+                userInfo.lastStakeHeight = Ledger.CurrentIndex;
+                userInfo.stakeAmount = userInfo.stakeAmount + amount;
+                userInfo.stakeLevel = GetStakeLevelByAmount(userInfo.stakeAmount);
+
+                SetUserStakeInfo(from, userInfo);
             }
         }
 
@@ -164,7 +163,7 @@ namespace IdoContract
             userInfo.stakeLevel = GetStakeLevelByAmount(userInfo.stakeAmount);
             SetUserStakeInfo(userAddress, userInfo);
 
-            if (GetEnoughTimeForUnstake(userInfo.lastStakeHeight, Ledger.CurrentIndex, userInfo.stakeLevel >= 4))
+            if ((BigInteger)(Ledger.CurrentIndex - userInfo.lastStakeHeight) >= GetUnstakeTimeSpan())
             {
                 SafeTransfer(assetHash, Runtime.ExecutingScriptHash, userAddress, unstakeAmount);
             }            
@@ -280,6 +279,20 @@ namespace IdoContract
             }
 
             return allContracts;
+        }
+
+        public static BigInteger GetProjectsCount()
+        {
+            StorageMap projectsMap = new StorageMap(Storage.CurrentContext, registeredProjectPrefix);
+
+            var allContracts = new List<ByteString>();
+
+            foreach (ByteString[] project in projectsMap.Find(FindOptions.RemovePrefix))
+            {
+                allContracts.Add(project[0]);
+            }
+
+            return allContracts.Count;
         }
 
         private static void SetProjectUserInfo(UInt160 idoPairContractHash, UInt160 user, ProjectUserInfo projectUserInfo)
@@ -428,16 +441,8 @@ namespace IdoContract
 
         #region calculation
 
-        public static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd, bool ifHighLevel)
-        {
-            if (ifHighLevel)
-            {
-                if ((BigInteger)(heightEnd - heightStart) * 2 >= GetUnstakeTimeSpan())
-                {
-                    return true;
-                }
-            }
-
+        public static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd)
+        {            
             if ((BigInteger)(heightEnd - heightStart) >= GetUnstakeTimeSpan())
             {
                 return true;
@@ -491,10 +496,10 @@ namespace IdoContract
         {
             return level switch
             {
-                6 => 900,
-                5 => 400,
-                4 => 150,
-                3 => 65,
+                6 => 1450,
+                5 => 695,
+                4 => 300,
+                3 => 95,
                 2 => 30,
                 1 => 10,
                 _ => 0,
