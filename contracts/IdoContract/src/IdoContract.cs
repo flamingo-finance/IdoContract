@@ -441,16 +441,6 @@ namespace IdoContract
 
         #region calculation
 
-        public static bool GetEnoughTimeForUnstake(uint heightStart, uint heightEnd)
-        {            
-            if ((BigInteger)(heightEnd - heightStart) >= GetUnstakeTimeSpan())
-            {
-                return true;
-            }
-
-            return false;
-        }
-
         public static BigInteger GetVoteTimeSpan()
         {
             ByteString rawVoteTimeSpan = Storage.Get(Storage.CurrentContext, voteTimeSpanKey);
