@@ -27,7 +27,9 @@ namespace IdoPairContract
         private static bool IsOwner() => Runtime.CheckWitness(GetOwner());
         public static UInt160 GetOwner() => (UInt160) Storage.Get(Storage.CurrentContext, superAdminKey);
 
-        public const ulong Price = 21;
+        private const ulong PriceMultiplier = 1000_000_000_000_000_000;  //18
+
+        public const ulong Price = 210_000_000_000_000_0; //0.21
 
         public static void _deploy(object data, bool update)
         {
@@ -35,13 +37,19 @@ namespace IdoPairContract
             Storage.Put(Storage.CurrentContext, superAdminKey, tx.Sender);
         }
 
+        public static void Update(ByteString nefFile, string manifest)
+        {
+            ExecutionEngine.Assert(IsOwner(), "Not Owner");
+            ContractManagement.Update(nefFile, manifest);
+        }
+
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetAssetHash() == Runtime.CallingScriptHash)
+            if ((BigInteger)Storage.Get(Storage.CurrentContext, swapReceiveKey) == 1 && GetSpendAssetHash() == Runtime.CallingScriptHash)
             {
                 ResetReceiveOnSwap();
                 ResetReceiveOnProjectRegister();
-                SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount / Price);
+                SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, from, amount * PriceMultiplier / Price);
             }
             else if ((BigInteger)Storage.Get(Storage.CurrentContext, registerReceiveKey) == 1 && GetTokenHash() == Runtime.CallingScriptHash)
             {
@@ -53,7 +61,7 @@ namespace IdoPairContract
                 ExecutionEngine.Abort();
             }
         }
-        public static void SetReceiveOnContractRegister()
+        public static void SetReceiveOnProjectRegister()
         {
             if (Runtime.CallingScriptHash == GetIdoContract())
             {
@@ -65,7 +73,7 @@ namespace IdoPairContract
         {
             if (Runtime.CallingScriptHash == GetIdoContract())
             {
-                Storage.Put(Storage.CurrentContext, registerReceiveKey, 1);
+                Storage.Put(Storage.CurrentContext, swapReceiveKey, 1);
             }
         }
 
@@ -79,7 +87,7 @@ namespace IdoPairContract
             Storage.Delete(Storage.CurrentContext, swapReceiveKey);
         }
 
-        public static bool SetAssetHash(UInt160 assetHash)
+        public static bool SetSpendAssetHash(UInt160 assetHash)
         {
             ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "bad assetHash");
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
@@ -87,7 +95,7 @@ namespace IdoPairContract
             return true;
         }
 
-        public static UInt160 GetAssetHash()
+        public static UInt160 GetSpendAssetHash()
         {
             ByteString rawAssetHash = Storage.Get(Storage.CurrentContext, assetHashKey);
             ExecutionEngine.Assert(rawAssetHash is not null, "Asset hash not set.");
@@ -127,7 +135,7 @@ namespace IdoPairContract
         public static bool WithdrawAsset(BigInteger amount)
         {
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
-            SafeTransfer(GetAssetHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
+            SafeTransfer(GetSpendAssetHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
         }
 
@@ -136,12 +144,6 @@ namespace IdoPairContract
             ExecutionEngine.Assert(IsOwner(), "Not Owner");
             SafeTransfer(GetTokenHash(), Runtime.ExecutingScriptHash, GetOwner(), amount);
             return true;
-        }
-
-        public static void Update(ByteString nefFile, string manifest, object data = null)
-        {
-            ExecutionEngine.Assert(IsOwner(), "Not Owner");
-            ContractManagement.Update(nefFile, manifest, data);
         }
 
         public static bool TransferOwnership(UInt160 newOwner)
