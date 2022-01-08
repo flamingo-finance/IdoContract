@@ -69,6 +69,7 @@ namespace IdoContract
 
         public static void _deploy(object data, bool update)
         {
+            if (update) return;
             Storage.Put(Storage.CurrentContext, superAdminKey, originOwner);
             OnDeploy(superAdminKey, originOwner);
         }
@@ -508,8 +509,8 @@ namespace IdoContract
             {
                 return (StakeLevelAmount)StdLib.Deserialize(rawAmount);
             }
-            Error("bad level amount");
-            throw new Exception();
+            ExecutionEngine.Assert(false, "bad level amount");
+            throw new InvalidOperationException();
         }
 
         public static byte GetStakeLevelByAmount(BigInteger amount)
@@ -562,43 +563,25 @@ namespace IdoContract
         public static bool SetVoteTimeSpan(BigInteger timeSpan)
         {
             ExecutionEngine.Assert(IsOwner(), "witness check fail");
-            if (timeSpan > 0)
-            {
+            ExecutionEngine.Assert(timeSpan > 0, "bad vote timeSpan");
                 Storage.Put(Storage.CurrentContext, voteTimeSpanKey, timeSpan);
                 return true;
-            }
-            else
-            {
-                throw new Exception("BA"); // bad args
-            }
         }
 
         public static bool SetUnstakeTimeSpan(BigInteger timeSpan)
         {
             ExecutionEngine.Assert(IsOwner(), "witness check fail");
-            if (timeSpan > 0)
-            {
-                Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
-                return true;
-            }
-            else
-            {
-                throw new Exception("BA"); // bad args
-            }
+            ExecutionEngine.Assert(timeSpan > 0, "bad unstake timeSpam");
+            Storage.Put(Storage.CurrentContext, unstakeTimeSpanKey, timeSpan);
+            return true;
         }
 
         public static bool SetSwapTimeSpan(BigInteger timeSpan)
         {
             ExecutionEngine.Assert(IsOwner(), "witness check fail");
-            if (timeSpan > 0)
-            {
-                Storage.Put(Storage.CurrentContext, swapTimeSpanKey, timeSpan);
-                return true;
-            }
-            else
-            {
-                throw new Exception("BA"); // bad args
-            }
+            ExecutionEngine.Assert(timeSpan > 0, "bad swap timeSpan");
+            Storage.Put(Storage.CurrentContext, swapTimeSpanKey, timeSpan);
+            return true;
         }
 
         #endregion
