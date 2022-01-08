@@ -161,7 +161,7 @@ namespace IdoContract
             BigInteger amountBefore = GetBalanceOfToken(assetHash, Runtime.ExecutingScriptHash);
             ExecutionEngine.Assert(Runtime.CheckWitness(userAddress), "check user witness fail");
             UserStakeInfo userInfo = GetUserStakeInfo(userAddress);
-            ExecutionEngine.Assert(userInfo.stakeAmount >= unstakeAmount, "bad amount");
+            ExecutionEngine.Assert(userInfo.stakeAmount > 0 && userInfo.stakeAmount >= unstakeAmount, "bad amount");
 
             userInfo.stakeAmount = userInfo.stakeAmount - unstakeAmount;
             userInfo.stakeLevel = GetStakeLevelByAmount(userInfo.stakeAmount);
@@ -390,6 +390,7 @@ namespace IdoContract
         public static bool SwapTokenSecondRound(UInt160 user, UInt160 idoPairContractHash, BigInteger amount)
         {
             ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
+            ExecutionEngine.Assert(idoPairContractHash.IsValid && !idoPairContractHash.IsZero, "bad idoPairContractHash");
             ExecutionEngine.Assert(Runtime.CheckWitness(user), "witness check fail");
             RegisteredProject project = GetRegisteredProject(idoPairContractHash);
             ExecutionEngine.Assert(project.isNewProject is false, "empty project");
