@@ -343,13 +343,12 @@ namespace IdoContract
             UserStakeInfo userInfo = GetUserStakeInfo(user);
             ExecutionEngine.Assert(userInfo.stakeLevel >= project.allowedLevel, "bad user level");
 
-            ProjectUserInfo projectUserInfo = GetProjectUserInfo(idoPairContractHash, user);
-            ExecutionEngine.Assert(projectUserInfo.weight == 0, "user has voted for project");
-
-            uint weight = GetStakeWeightByLevel(userInfo.stakeLevel);
-            ExecutionEngine.Assert(weight >= 0, "bad weight amount");
-            project.totalWeight = project.totalWeight + weight;
-            projectUserInfo.weight = weight;
+            ProjectUserInfo projectUserInfo = GetProjectUserInfo(idoPairContractHash, user);            
+            uint newWeight = GetStakeWeightByLevel(userInfo.stakeLevel);
+            ExecutionEngine.Assert(newWeight >= 0, "bad weight amount");
+            //allow users upgrade their wieght, totalWeight = totalWeight - user old weight + user new weight, first vote old weight == 0
+            project.totalWeight = project.totalWeight - projectUserInfo.weight + newWeight;
+            projectUserInfo.weight = newWeight;
             SetRegisteredProject(project, idoPairContractHash);
             SetProjectUserInfo(idoPairContractHash, user, projectUserInfo);
             return true;
