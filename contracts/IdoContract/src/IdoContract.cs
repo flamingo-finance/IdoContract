@@ -298,6 +298,8 @@ namespace IdoContract
 
         private static void SetProjectUserInfo(UInt160 idoPairContractHash, UInt160 user, ProjectUserInfo projectUserInfo)
         {
+            ExecutionEngine.Assert(user.IsValid && !user.IsZero, "bad user");
+            ExecutionEngine.Assert(idoPairContractHash.IsValid && !idoPairContractHash.IsZero, "bad idoPairContract");
             byte[] key = projectUserPrefix.Concat(idoPairContractHash).Concat(user);
             Storage.Put(Storage.CurrentContext, key, StdLib.Serialize(projectUserInfo));
         }
@@ -432,10 +434,11 @@ namespace IdoContract
             ProjectUserInfo projectUserInfo = GetProjectUserInfo(idoPairContractHash, user);
             ExecutionEngine.Assert(projectUserInfo.claimAmount > 0, "no unclaimed token");
 
-            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, projectUserInfo.claimAmount);
-
+            BigInteger amount = projectUserInfo.claimAmount;
             projectUserInfo.claimAmount = 0;
             SetProjectUserInfo(idoPairContractHash, user, projectUserInfo);
+
+            SafeTransfer(project.tokenHash, Runtime.ExecutingScriptHash, user, amount);
             return true;
         }
 
