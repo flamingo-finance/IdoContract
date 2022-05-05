@@ -590,14 +590,30 @@ namespace IdoContract
 
         private static void SafeTransfer(UInt160 token, UInt160 from, UInt160 to, BigInteger amount)
         {
-            var result = (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });
-            ExecutionEngine.Assert(result, "transfer fail");
+            try
+            {
+                var result = (bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { from, to, amount, null });
+                ExecutionEngine.Assert(result, "transfer fail");
+            }
+            catch (Exception ex)
+            {
+                ExecutionEngine.Assert(false, ex.Message);
+            }
+
         }
 
         private static BigInteger GetBalanceOfToken(UInt160 assetHash, UInt160 address)
         {
-            var result = Contract.Call(assetHash, "balanceOf", CallFlags.ReadOnly, new object[] { address });
-            return (BigInteger)result;
+            try
+            {
+                var result = Contract.Call(assetHash, "balanceOf", CallFlags.ReadOnly, new object[] { address });
+                return (BigInteger)result;
+            }
+            catch (Exception ex)
+            {
+                ExecutionEngine.Assert(false, ex.Message);
+            }
+            return 0;
         }
 
         #endregion
@@ -605,12 +621,26 @@ namespace IdoContract
         #region stateControl
         private static void CallRegister(UInt160 idoPairContract)
         {
-            Contract.Call(idoPairContract, "setReceiveOnProjectRegister", CallFlags.All, new object[] { });
+            try
+            {
+                Contract.Call(idoPairContract, "setReceiveOnProjectRegister", CallFlags.All, new object[] { });
+            }
+            catch (Exception ex)
+            {
+                ExecutionEngine.Assert(false, ex.Message);
+            }
         }
 
         private static void CallSwap(UInt160 idoPairContract)
         {
-            Contract.Call(idoPairContract, "setReceiveOnSwap", CallFlags.All, new object[] { });
+            try
+            {
+                Contract.Call(idoPairContract, "setReceiveOnSwap", CallFlags.All, new object[] { });
+            }
+            catch (Exception ex)
+            {
+                ExecutionEngine.Assert(false, ex.Message);
+            }
         }
         #endregion
 
