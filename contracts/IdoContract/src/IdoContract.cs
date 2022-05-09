@@ -10,10 +10,7 @@ using Neo.SmartContract.Framework.Attributes;
 
 namespace IdoContract
 {
-    [DisplayName("IdoContract")]
-    [ManifestExtra("Author", "NEO")]
-    [ManifestExtra("Email", "developer@neo.org")]
-    [ManifestExtra("Description", "This is a initial dex offering platform contract")]
+    [DisplayName("IDOContract")]
     [ContractPermission("*")]
     public class IdoContract : SmartContract
     {
@@ -24,26 +21,37 @@ namespace IdoContract
         private static readonly byte[] spendAssetHashKey = new byte[] { 0x01, 0x03 };
         private static readonly byte[] projectUserPrefix = new byte[] { 0x01, 0x04 };
 
-        [InitialValue("0x1415ab3b409a95555b77bc4ab6a7d9d7be0eddbd", ContractParameterType.Hash160)] // big endian
+        //Test
+        //[InitialValue("0x1415ab3b409a95555b77bc4ab6a7d9d7be0eddbd", ContractParameterType.Hash160)] // big endian
+        //private static readonly byte[] defaultStakeAssetHash = default; //FLM
+
+        //[InitialValue("0x83c442b5dc4ee0ed0e5249352fa7c75f65d6bfd6", ContractParameterType.Hash160)] // big endian
+        //private static readonly byte[] defaultSpendAssetHash = default; //fUSDT
+
+        //[InitialValue("NVGUQ1qyL4SdSm7sVmGVkXetjEsvw2L3NT", ContractParameterType.Hash160)]
+        //private static readonly UInt160 originOwner = default;
+
+        //Main
+        [InitialValue("0xf0151f528127558851b39c2cd8aa47da7418ab28", ContractParameterType.Hash160)] // big endian
         private static readonly byte[] defaultStakeAssetHash = default; //FLM
 
-        [InitialValue("0x83c442b5dc4ee0ed0e5249352fa7c75f65d6bfd6", ContractParameterType.Hash160)] // big endian
+        [InitialValue("0xcd48b160c1bbc9d74997b803b9a7ad50a4bef020", ContractParameterType.Hash160)] // big endian
         private static readonly byte[] defaultSpendAssetHash = default; //fUSDT
 
-        [InitialValue("NVGUQ1qyL4SdSm7sVmGVkXetjEsvw2L3NT", ContractParameterType.Hash160)]
+        [InitialValue("NU5ffmnBpXXxkFwMNgEdPC8ZxK2vkRC1CT", ContractParameterType.Hash160)]
         private static readonly UInt160 originOwner = default;
 
         private static readonly byte[] unstakeTimeSpanKey = new byte[] { 0x02, 0x02 };
-        public const uint DefaultUnstakeTimeSpan = 6172;
+        public const uint DefaultUnstakeTimeSpan = 23040;
         private static readonly byte[] voteTimeSpanKey = new byte[] { 0x02, 0x03 };
-        private const uint DefaultVoteTimeSpan = 21602;
+        private const uint DefaultVoteTimeSpan = 22400;
         private static readonly byte[] swapTimeSpanKey = new byte[] { 0x02, 0x04 };
-        private const uint DefaultSwapTimeSpan = 21602;
+        private const uint DefaultSwapTimeSpan = 11200;
         private static readonly byte[] levelAmountKey = { 0x03, 0x01 };
 
         private const ulong PriceDenominator = 1000000000000000000; //10^18
         private const int WithdrawFeeDenominator = 10000;
-        private const int DefaultWithdrawFee = 8000;
+        private const int DefaultWithdrawFee = 7500;
         private static readonly byte[] withdrawFeeKey = { 0x04, 0x01 };
 
         private static readonly byte[] superAdminKey = { 0x05, 0x01 };

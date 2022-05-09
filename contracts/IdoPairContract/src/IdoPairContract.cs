@@ -9,10 +9,7 @@ using Neo.SmartContract.Framework.Attributes;
 
 namespace IdoPairContract
 {
-    [DisplayName("IdoPairContract")]
-    [ManifestExtra("Author", "NEO")]
-    [ManifestExtra("Email", "developer@neo.org")]
-    [ManifestExtra("Description", "This is an initial dex offering pair contract.")]
+    [DisplayName("GM_IDOPairContract")]
     [ContractPermission("*")]
     public class IdoPairContract : SmartContract
     {
